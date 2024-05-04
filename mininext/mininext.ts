@@ -121,36 +121,36 @@ async function devServer() {
   watchAndBuild("frontend");
   watchAndBuild("backend");
 }
-const standardDevReloader = /*html*/ `
-    <script>
-      function reloader() {
-        let socket = null;
+const standardDevReloader = html`
+  <script>
+    function reloader() {
+      let socket = null;
 
-        function connectWebSocket() {
-          if (socket) {
-            return;
-          }
-          socket = new WebSocket("ws://localhost:3001/reload");
-
-          socket.addEventListener("message", (event) => {
-            window.location.reload();
-          });
-
-          socket.addEventListener("close", (event) => {
-            // Reestablish the connection after 1 second
-            socket = null;
-          });
-
-          socket.addEventListener("error", (event) => {
-            socket = null;
-          });
+      function connectWebSocket() {
+        if (socket) {
+          return;
         }
-        connectWebSocket(); // connect to reloader, if it does not work:
-        setInterval(connectWebSocket, 1000); // retry every 1 second
+        socket = new WebSocket("ws://localhost:3001/reload");
+
+        socket.addEventListener("message", (event) => {
+          window.location.reload();
+        });
+
+        socket.addEventListener("close", (event) => {
+          // Reestablish the connection after 1 second
+          socket = null;
+        });
+
+        socket.addEventListener("error", (event) => {
+          socket = null;
+        });
       }
-      reloader();
-    </script>
-  `;
+      connectWebSocket(); // connect to reloader, if it does not work:
+      setInterval(connectWebSocket, 1000); // retry every 1 second
+    }
+    reloader();
+  </script>
+`;
 
 export {
   url,

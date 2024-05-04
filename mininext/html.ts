@@ -216,16 +216,16 @@ export async function htmlResponder(
       when you embed unescaped json elements in an html document.
     </div>`;
   }
-  const definitelyResolved = await maybeUnresolved.resolve(mini);
-  const flattend = definitelyResolved.flat(Infinity);
   if (!(maybeUnresolved instanceof JsonString)) {
-    flattend.unshift(/*html*/ `<!DOCTYPE html>
+    maybeUnresolved = html`<!DOCTYPE html>
       <html>
         <head>
           ${global.Reloader || ""} ${head}
         </head>
         <body>
-      `);
+          ${maybeUnresolved}
+        </body>
+      </html> `;
   } else {
     const headers = {
       ...options.headers,
@@ -233,6 +233,8 @@ export async function htmlResponder(
     };
     options.headers = headers;
   }
+  const definitelyResolved = await maybeUnresolved.resolve(mini);
+  const flattend = definitelyResolved.flat(Infinity);
 
   async function* stepGen() {
     let index = 0;
@@ -263,5 +265,5 @@ export function isError(
 }
 
 declare global {
-  var Reloader: string | undefined;
+  var Reloader: HtmlString | undefined;
 }
