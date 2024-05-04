@@ -217,7 +217,7 @@ export async function htmlResponder(
     flattend.unshift(/*html*/ `<!DOCTYPE html>
       <html>
         <head>
-          ${Reloader || ""} ${head}
+          ${global.Reloader || ""} ${head}
         </head>
         <body>
       `);
