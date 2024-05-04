@@ -217,10 +217,12 @@ export async function htmlResponder(
     </div>`;
   }
   if (!(maybeUnresolved instanceof JsonString)) {
+    const reloader = new HtmlString();
+    reloader.push(global.Reloader || "");
     maybeUnresolved = html`<!DOCTYPE html>
       <html>
         <head>
-          ${global.Reloader || ""} ${head}
+          ${reloader} ${head}
         </head>
         <body>
           ${maybeUnresolved}
