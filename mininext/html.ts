@@ -145,30 +145,31 @@ function JsonTemplateProcessor(danger: boolean = false) {
 }
 export const json = JsonTemplateProcessor();
 export const dangerjson = JsonTemplateProcessor(true);
-export const commonHead = /*html*/ `
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+export const commonHead = html` <meta
+    name="viewport"
+    content="width=device-width, initial-scale=1.0"
+  />
   <script>
     /* prevent form resubmission */
     if (window.history.replaceState) {
       window.history.replaceState(null, null, window.location.href);
     }
   </script>`;
-export const cssReset = /*html*/ `
-    <style>
-    /* CSS Reset */
-    * {
-      margin: 0;
-      padding: 0;
-      box-sizing: border-box;
-    }
+export const cssReset = html` <style>
+  /* CSS Reset */
+  * {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+  }
 
-    /* Set the background color to black */
-    html,
-    body {
-      background-color: #000;
-      color: #fff; /* Set the default text color to white for better contrast */
-    }
-  </style>`;
+  /* Set the background color to black */
+  html,
+  body {
+    background-color: #000;
+    color: #fff; /* Set the default text color to white for better contrast */
+  }
+</style>`;
 let default_head = html`
   <title>mini-next</title>
   ${commonHead} ${cssReset}
