@@ -217,7 +217,7 @@ export async function htmlResponder(
     flattend.unshift(/*html*/ `<!DOCTYPE html>
       <html>
         <head>
-          ${Reloader} ${head}
+          ${Reloader || ""} ${head}
         </head>
         <body>
       `);
@@ -258,5 +258,5 @@ export function isError(
 }
 
 declare global {
-  var Reloader: HtmlString | undefined;
+  var Reloader: string | undefined;
 }
