@@ -5,6 +5,7 @@
   "main": "dist/mininext.js",
   "types": "dist/mininext.d.ts",
   "scripts": {
+    "publish": "npm publish",
     "build": "tsc",
     "postversion": "git push --follow-tags",
     "preversion": "bun run build"
