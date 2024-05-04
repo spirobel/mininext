@@ -1,15 +1,11 @@
 # mininext
 
-To install dependencies:
+To install
 
 ```bash
-bun install
+bun add @spirobel/mininext
 ```
 
-To run:
+syntax highlighting:
 
-```bash
-bun run index.ts
-```
-
-This project was created using `bun init` in bun v1.1.7. [Bun](https://bun.sh) is a fast all-in-one JavaScript runtime.
+[mininext vs code extension](https://marketplace.visualstudio.com/items?itemName=spirobel.mini-next-vs-code)
