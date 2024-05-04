@@ -1,5 +1,5 @@
 {
-  "name": "mininext",
+  "name": "@spirobel/mininext",
   "module": "index.ts",
   "type": "module",
   "version": "0.2.0",
