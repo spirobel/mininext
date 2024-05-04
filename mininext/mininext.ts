@@ -2,8 +2,12 @@ import { url, Mini, type HtmlHandler } from "./url";
 import { html, isError, HtmlString, head, commonHead, cssReset } from "./html";
 import { watch } from "fs/promises";
 import * as path from "path";
-const PROJECT_ROOT = import.meta.dir + "/../../../../";
-
+function projectRoot() {
+  return global.PROJECT_ROOT || import.meta.dir + "/../../../../";
+}
+declare global {
+  var PROJECT_ROOT: string | undefined;
+}
 async function build(backendPath: string = "backend/backend.ts") {
   await buildBackend(backendPath);
   if (Bun.argv[2] === "dev") {
@@ -17,7 +21,7 @@ const myPlugin: BunPlugin = {
   setup(build) {
     build.onResolve({ filter: /^buffer$/ }, (args) => {
       const path_to_buffer_lib = path.resolve(
-        PROJECT_ROOT,
+        projectRoot(),
         "node_modules/buffer/index.js"
       );
       if (path_to_buffer_lib)
@@ -31,7 +35,7 @@ async function buildBackend(backendPath: string = "backend/backend.ts") {
   global.FrontendScriptUrls = [];
   global.FrontendScripts = [];
   global.bundledSVGs = {};
-  const i = await import(path.resolve(PROJECT_ROOT, backendPath));
+  const i = await import(path.resolve(projectRoot(), backendPath));
 
   for (const frontend of url.getFrontends()) {
     const f = await buildFrontend(frontend);
@@ -40,7 +44,9 @@ async function buildBackend(backendPath: string = "backend/backend.ts") {
   }
   for (const svgPath of url.getSvgPaths()) {
     const parsedSvgPath = path.parse(svgPath);
-    const svgContent = Bun.file(path.join(PROJECT_ROOT + "/backend/", svgPath));
+    const svgContent = Bun.file(
+      path.join(projectRoot() + "/backend/", svgPath)
+    );
     const svgHash = Bun.hash(await svgContent.arrayBuffer());
     const svgUrl = `/${parsedSvgPath.name}-${svgHash}.svg`;
     bundledSVGs[svgUrl] = {
@@ -49,8 +55,8 @@ async function buildBackend(backendPath: string = "backend/backend.ts") {
     };
   }
   const res = await Bun.build({
-    entrypoints: [path.resolve(PROJECT_ROOT, backendPath)],
-    outdir: path.resolve(PROJECT_ROOT, "dist"),
+    entrypoints: [path.resolve(projectRoot(), backendPath)],
+    outdir: path.resolve(projectRoot(), "dist"),
     naming: "backend.js",
     minify: Bun.argv[2] === "dev" ? false : true, //production
     target: "node",
@@ -64,8 +70,8 @@ async function buildBackend(backendPath: string = "backend/backend.ts") {
 
 async function buildFrontend(file: string) {
   const result = await Bun.build({
-    entrypoints: [path.resolve(PROJECT_ROOT, `frontend/${file}`)],
-    outdir: path.resolve(PROJECT_ROOT, "dist"),
+    entrypoints: [path.resolve(projectRoot(), `frontend/${file}`)],
+    outdir: path.resolve(projectRoot(), "dist"),
     naming: "[name]-[hash].[ext]",
     minify: Bun.argv[2] === "dev" ? false : true, //production
     target: "browser",
@@ -103,7 +109,7 @@ async function devServer() {
   async function watchAndBuild(dir: string) {
     try {
       //start the file watcher that will rebuild frontend on save
-      const watcher = watch(path.resolve(PROJECT_ROOT, dir), {
+      const watcher = watch(path.resolve(projectRoot(), dir), {
         recursive: true,
       });
       for await (const event of watcher) {
