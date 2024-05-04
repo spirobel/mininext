@@ -1,8 +1,14 @@
 {
   "name": "@spirobel/mininext",
-  "module": "index.ts",
+  "module": "dist/mininext.js",
   "type": "module",
-  "version": "0.2.0",
+  "main": "dist/mininext.js",
+  "types": "dist/mininext.d.ts",
+  "scripts": {
+    "build": "tsc"
+  },
+  "files": ["dist", "mininext"],
+  "version": "0.2.2",
   "devDependencies": {
     "@types/bun": "latest"
   },

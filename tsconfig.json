@@ -4,15 +4,14 @@
     "lib": ["ESNext", "DOM"],
     "target": "ESNext",
     "module": "ESNext",
+    "outDir": "./dist",
     "moduleDetection": "force",
     "jsx": "react-jsx",
     "allowJs": true,
-
+    "declaration": true,
     // Bundler mode
     "moduleResolution": "bundler",
-    "allowImportingTsExtensions": true,
     "verbatimModuleSyntax": true,
-    "noEmit": true,
 
     // Best practices
     "strict": true,
