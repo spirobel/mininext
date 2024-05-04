@@ -2,7 +2,7 @@ import { url, Mini, type HtmlHandler } from "./url";
 import { html, isError, HtmlString, head } from "./html";
 import { watch } from "fs/promises";
 import * as path from "path";
-const PROJECT_ROOT = import.meta.dir + "/../";
+const PROJECT_ROOT = import.meta.dir + "/../../../../";
 
 async function build(backendPath: string = "backend/backend.ts") {
   await buildBackend(backendPath);
