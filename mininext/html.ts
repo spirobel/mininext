@@ -145,10 +145,16 @@ function JsonTemplateProcessor(danger: boolean = false) {
 }
 export const json = JsonTemplateProcessor();
 export const dangerjson = JsonTemplateProcessor(true);
-
-let default_head = html` <title>mini-next</title>
+export const commonHead = /*html*/ `
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <style>
+  <script>
+    /* prevent form resubmission */
+    if (window.history.replaceState) {
+      window.history.replaceState(null, null, window.location.href);
+    }
+  </script>`;
+export const cssReset = /*html*/ `
+    <style>
     /* CSS Reset */
     * {
       margin: 0;
@@ -162,13 +168,11 @@ let default_head = html` <title>mini-next</title>
       background-color: #000;
       color: #fff; /* Set the default text color to white for better contrast */
     }
-  </style>
-  <script>
-    /* prevent form resubmission */
-    if (window.history.replaceState) {
-      window.history.replaceState(null, null, window.location.href);
-    }
-  </script>`;
+  </style>`;
+let default_head = html`
+  <title>mini-next</title>
+  ${commonHead} ${cssReset}
+`;
 /**
  * Set the default head for all pages. Can still be overwritten on a per page basis
  * @param defaultHead - HtmlString

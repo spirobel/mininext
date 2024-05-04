@@ -1,5 +1,5 @@
 import { url, Mini, type HtmlHandler } from "./url";
-import { html, isError, HtmlString, head } from "./html";
+import { html, isError, HtmlString, head, commonHead, cssReset } from "./html";
 import { watch } from "fs/promises";
 import * as path from "path";
 const PROJECT_ROOT = import.meta.dir + "/../../../../";
@@ -162,4 +162,6 @@ export {
   type HtmlHandler,
   Mini,
   standardDevReloader,
+  commonHead,
+  cssReset,
 };
