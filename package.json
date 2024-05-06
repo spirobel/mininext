@@ -7,7 +7,6 @@
   "scripts": {
     "publish": "bun run build && npm publish",
     "build": "tsc",
-    "postversion": "git push --follow-tags",
     "preversion": "bun run build"
 
   },
