@@ -20,18 +20,26 @@ export class HtmlString extends Array {
   /**
    * a HtmlString is by default resolved.
    * if we we pass a function as a value to the html`` template string, it will be unresolved.
+   * it can also become unresolved if an unresolved HtmlString is passed into it as a value
    */
   resolved = true;
   async resolve<T>(mini: Mini<T>) {
     if (this.resolved) return this;
 
     for (const [index, htmlPiece] of this.entries()) {
-      if (typeof htmlPiece === "function") {
+      if (htmlPiece instanceof HtmlString) {
+        let resolvedHtmlPiece = await htmlPiece.resolve(mini);
+        if (this instanceof JsonString || this instanceof DangerJsonInHtml) {
+          this[index] = JSON.stringify(resolvedHtmlPiece);
+        } else {
+          this[index] = resolvedHtmlPiece;
+        }
+      } else if (typeof htmlPiece === "function") {
         let resolvedHtmlPiece = await htmlPiece(mini); //passing mini
         if (resolvedHtmlPiece instanceof HtmlString) {
           resolvedHtmlPiece = await resolvedHtmlPiece.resolve(mini);
         } else {
-          if (this instanceof JsonString) {
+          if (this instanceof JsonString || this instanceof DangerJsonInHtml) {
             resolvedHtmlPiece = JSON.stringify(resolvedHtmlPiece);
           } else {
             const notEmpty = resolvedHtmlPiece || "";
@@ -68,7 +76,7 @@ export function html<X = undefined>(
     if (index < values.length) {
       const value = values[index];
 
-      // we can pass arrays of HtmlString and they will get flattened automatically
+      // we can pass arrays of HtmlString and they will get flattened in the HtmlResponder
       if (
         Array.isArray(value) &&
         value.every((val) => val instanceof HtmlString)
@@ -97,8 +105,7 @@ export function html<X = undefined>(
       htmlStringArray.push(values[index]);
     }
   }
-  // Flatten the HtmlString array to ensure all nested arrays are properly included
-  return htmlStringArray.flat();
+  return htmlStringArray;
 }
 export class JsonString extends HtmlString {}
 export class DangerJsonInHtml extends HtmlString {}
@@ -133,8 +140,7 @@ function JsonTemplateProcessor(danger: boolean = false) {
 
       if (index < values.length) {
         const value = values[index];
-
-        // we can pass arrays of HtmlString and they will get flattened automatically
+        // we can pass arrays of HtmlString and they will get flattened in the HtmlResponder
         if (
           Array.isArray(value) &&
           value.every((val) => val instanceof HtmlString)
@@ -145,20 +151,20 @@ function JsonTemplateProcessor(danger: boolean = false) {
         } else if (typeof value === "function") {
           jsonStringArray.resolved = false;
           values[index] = value;
-        } else if (!(value instanceof JsonString)) {
-          const notEmpty = value || "";
-          // values will be turned into a JSON string
-          values[index] = JSON.stringify(notEmpty);
         } else if (value instanceof HtmlString) {
           if (!value.resolved) {
             jsonStringArray.resolved = false;
           }
+          values[index] = value;
+        } else if (!(value instanceof JsonString)) {
+          const notEmpty = value || "";
+          // values will be turned into a JSON string
+          values[index] = JSON.stringify(notEmpty);
         }
         jsonStringArray.push(values[index]);
       }
     }
-    // Flatten the HtmlString array to ensure all nested arrays are properly included
-    return jsonStringArray.flat();
+    return jsonStringArray;
   };
 }
 export const json = JsonTemplateProcessor();
