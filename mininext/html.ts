@@ -30,6 +30,14 @@ export class HtmlString extends Array {
         let resolvedHtmlPiece = await htmlPiece(mini); //passing mini
         if (resolvedHtmlPiece instanceof HtmlString) {
           resolvedHtmlPiece = await resolvedHtmlPiece.resolve(mini);
+        } else {
+          if (this instanceof JsonString) {
+            resolvedHtmlPiece = JSON.stringify(resolvedHtmlPiece);
+          } else {
+            const notEmpty = resolvedHtmlPiece || "";
+            // values will be escaped by default
+            resolvedHtmlPiece = Bun.escapeHTML(notEmpty + "");
+          }
         }
         // Replace the function with the resolved HTML piece in place
         this[index] = resolvedHtmlPiece;
@@ -67,6 +75,7 @@ export function html<X = undefined>(
       ) {
         // If the value is an array of HtmlString objects, add the whole array as a single value
         values[index] = value;
+        htmlStringArray.resolved = false; // we could bother with .find here
       } else if (typeof value === "function") {
         htmlStringArray.resolved = false;
         values[index] = value;
@@ -80,6 +89,10 @@ export function html<X = undefined>(
         const notEmpty = value || "";
         // values will be escaped by default
         values[index] = Bun.escapeHTML(notEmpty + "");
+      } else if (value instanceof HtmlString) {
+        if (!value.resolved) {
+          htmlStringArray.resolved = false;
+        }
       }
       htmlStringArray.push(values[index]);
     }
@@ -128,6 +141,7 @@ function JsonTemplateProcessor(danger: boolean = false) {
         ) {
           // If the value is an array of HtmlString objects, add the whole array as a single value
           values[index] = value;
+          jsonStringArray.resolved = false; // we could bother with .find here
         } else if (typeof value === "function") {
           jsonStringArray.resolved = false;
           values[index] = value;
@@ -135,6 +149,10 @@ function JsonTemplateProcessor(danger: boolean = false) {
           const notEmpty = value || "";
           // values will be turned into a JSON string
           values[index] = JSON.stringify(notEmpty);
+        } else if (value instanceof HtmlString) {
+          if (!value.resolved) {
+            jsonStringArray.resolved = false;
+          }
         }
         jsonStringArray.push(values[index]);
       }
