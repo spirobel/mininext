@@ -61,6 +61,7 @@ export class Mini<X = undefined> {
   route!: string;
   params!: URLSearchParams;
   form!: Form;
+  requrl!: Readonly<URL>;
 
   constructor(mini: Mini<undefined | any>, data: X) {
     Object.assign(this, mini);
@@ -401,8 +402,9 @@ export class url {
     return Url;
   }
   static async match(req: Request, reqPath?: string) {
+    const miniurl: Readonly<URL> = Object.freeze(new URL(req.url));
     if (typeof reqPath === "undefined") {
-      reqPath = new URL(req.url).pathname;
+      reqPath = miniurl.pathname;
     }
     const handler = url.direct_handlers_html.get(reqPath);
     if (handler) {
@@ -431,6 +433,7 @@ export class url {
 
       const mini = new Mini(
         {
+          requrl: miniurl,
           data: undefined,
           req,
           html,
