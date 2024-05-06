@@ -157,12 +157,26 @@ const standardDevReloader = html`
     reloader();
   </script>
 `;
+async function makeEntrypoint() {
+  let module;
+  const backendImportPath = projectRoot() + "/dist/backend.js";
+  try {
+    // @ts-ignore
+    module = await import(backendImportPath);
+  } catch (error) {
+    await build();
+    // @ts-ignore
+    module = await import(backendImportPath);
+  }
+  return module.default as (w: any) => Promise<Response>;
+}
 
 export {
   url,
   html,
   head,
   build,
+  makeEntrypoint,
   isError,
   HtmlString,
   type HtmlHandler,
