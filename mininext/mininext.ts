@@ -1,13 +1,5 @@
 import { url, Mini, type HtmlHandler } from "./url";
-import {
-  html,
-  json,
-  isError,
-  HtmlString,
-  head,
-  commonHead,
-  cssReset,
-} from "./html";
+import { html, isError, HtmlString, head, commonHead, cssReset } from "./html";
 import { watch } from "fs/promises";
 import * as path from "path";
 function projectRoot() {
@@ -178,12 +170,8 @@ async function makeEntrypoint() {
   }
   return module.default as (w: any) => Promise<Response>;
 }
-const css = html;
 export {
   url,
-  css,
-  json,
-  html,
   head,
   build,
   makeEntrypoint,
