@@ -194,7 +194,7 @@ export const cssReset = html` <style>
     color: #fff; /* Set the default text color to white for better contrast */
   }
 </style>`;
-let default_head = html`
+let default_head: HtmlHandler = (mini: Mini) => mini.html`
   <title>mini-next</title>
   ${commonHead} ${cssReset}
 `;
@@ -217,14 +217,14 @@ let default_head = html`
  * ]);
  *  ```
  */
-export function head(defaultHead: HtmlString) {
+export function head(defaultHead: HtmlHandler) {
   default_head = defaultHead;
 }
 
 export async function htmlResponder(
   mini: Mini,
   maybeUnresolved: HandlerReturnType,
-  head: HtmlString = default_head,
+  head: HtmlHandler = default_head,
   options: ResponseInit = {
     headers: {
       "Content-Type": "text/html; charset=utf-8",

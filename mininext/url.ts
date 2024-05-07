@@ -54,7 +54,7 @@ export class Mini<X = undefined> {
 
   data: X;
   req!: Request;
-  head!: (head: HtmlString) => undefined;
+  head!: (head: HtmlHandler | HtmlString) => undefined;
   headers!: (headers: HeadersInit, overwrite?: boolean) => undefined;
   options!: (options: ResponseInit) => undefined;
   deliver!: typeof url.deliver;
@@ -409,7 +409,7 @@ export class url {
     const handler = url.direct_handlers_html.get(reqPath);
     if (handler) {
       //this is the source of mini
-      let handlerHead: HtmlString | undefined = undefined;
+      let handlerHead: HtmlHandler | HtmlString | undefined = undefined;
       let handlerOptions: ResponseInit = {
         headers: {
           "Content-Type": "text/html; charset=utf-8",
