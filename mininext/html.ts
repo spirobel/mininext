@@ -204,7 +204,7 @@ let default_head: HtmlHandler = (mini: Mini) => mini.html`
  *
  * @example Here is what a default head might look like:
  *  ```ts
- *head(html` <title>hello hello</title> `);
+ *head((mini)=>mini.html` <title>hello hello</title> `);
  * url.set([
  * ["/", (mini) => mini.html`<h1>Hello world</h1>`],
  *  [
