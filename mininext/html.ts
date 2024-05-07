@@ -157,9 +157,10 @@ function JsonTemplateProcessor(danger: boolean = false) {
           }
           values[index] = value;
         } else if (!(value instanceof JsonString)) {
-          const notEmpty = value || "";
           // values will be turned into a JSON string
-          values[index] = JSON.stringify(notEmpty);
+          if (value) {
+            values[index] = JSON.stringify(value);
+          }
         }
         jsonStringArray.push(values[index]);
       }
