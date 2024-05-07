@@ -139,7 +139,7 @@ export class url {
 
     return foundEntry && foundEntry[0];
   }
-  static frontend(path: string, snippet?: HtmlString) {
+  static frontend(path: string, snippet?: HtmlHandler) {
     const frontendIndex = url.frontends.push(path) - 1;
     const scriptUrl = FrontendScriptUrls[frontendIndex];
 
