@@ -425,7 +425,13 @@ export class url {
         "multipart/form-data"
       );
       if (post && !urlencoded && !multipart) {
-        formJson = await req.json();
+        const length = Number(req.headers.get("content-length"));
+        const bodyNotEmpty = length > 0;
+        if (bodyNotEmpty) {
+          formJson = await req.json();
+        } else {
+          formJson = {};
+        }
       }
       if (post && (urlencoded || multipart)) {
         formData = await req.formData();
