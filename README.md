@@ -55,3 +55,13 @@ build:
 ```bash
 bun run build
 ```
+
+## Tutorial
+
+If you understand these 3 basic concepts you can build your own website with mininext:
+
+1. html + css
+2. templating
+3. you can use data inside of your html templates
+
+Tutorial video: [intro to mininext](https://www.youtube.com/watch?v=rz4awKntpzE)
