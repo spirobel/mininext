@@ -16,7 +16,7 @@ export type Form = {
 };
 
 export type DataMaker<X, Z = unknown> =
-  | ((mini: Mini<Z>) => DataMakerReturnType<X>)
+  | ((mini: Mini, rerun?: Z) => DataMakerReturnType<X>)
   | (() => DataMakerReturnType<X>);
 export type DataMakerReturnType<X> = X | Promise<X>;
 export type HandlerReturnType =
@@ -221,7 +221,7 @@ export class url {
        * @returns
        */
       handler: (dataHandler: HtmlHandler<T>) => {
-        return async (oldmini: Mini<Z>) => {
+        return async (oldmini: Mini) => {
           const data = await dataMaker(oldmini);
           const mini = new Mini(oldmini, data);
 
