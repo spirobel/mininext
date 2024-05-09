@@ -15,8 +15,8 @@ export type Form = {
   onPostSubmit<F>(cb: () => F): F | undefined;
 };
 
-export type DataMaker<X> =
-  | ((mini: Mini) => DataMakerReturnType<X>)
+export type DataMaker<X, Z = undefined> =
+  | ((mini: Mini<Z>) => DataMakerReturnType<X>)
   | (() => DataMakerReturnType<X>);
 export type DataMakerReturnType<X> = X | Promise<X>;
 export type HandlerReturnType =
@@ -213,7 +213,7 @@ export class url {
    * @example const {html,json, css, data, req, form, link, svg, deliver, route, params, header, head } = mini  //pull everything out of the mini handbag
    * @returns
    */
-  static data<T>(dataMaker: DataMaker<T>) {
+  static data<T, Z>(dataMaker: DataMaker<T, Z>) {
     return {
       /**
        * @param dataHandler the function that prepares the data for the handlers
@@ -221,7 +221,7 @@ export class url {
        * @returns
        */
       handler: (dataHandler: HtmlHandler<T>) => {
-        return async (oldmini: Mini) => {
+        return async (oldmini: Mini<Z>) => {
           const data = await dataMaker(oldmini);
           const mini = new Mini(oldmini, data);
 
@@ -232,6 +232,7 @@ export class url {
           return unresolvedDataHandler;
         };
       },
+      dataMaker,
       /**
        * use this to **specify the input type for the functions**,
        *
