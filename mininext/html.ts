@@ -4,7 +4,7 @@ import type {
   LazyHandlerReturnType,
   Mini,
 } from "./url";
-export type HtmlStringValues<T = undefined> =
+export type HtmlStringValues<T = unknown> =
   | HtmlString
   | HtmlString[]
   | string
@@ -13,7 +13,7 @@ export type HtmlStringValues<T = undefined> =
   | JsonString
   | LazyHandlerReturnType
   | undefined;
-export type JsonStringValues<T = undefined> =
+export type JsonStringValues<T = unknown> =
   | HtmlStringValues<T>
   | { [key: string]: any };
 export class HtmlString extends Array {
@@ -62,7 +62,7 @@ export class HtmlString extends Array {
   }
 }
 
-export function html<X = undefined>(
+export function html<X = unknown>(
   strings: TemplateStringsArray,
   ...values: HtmlStringValues<X>[]
 ) {
@@ -109,16 +109,15 @@ export function html<X = undefined>(
 }
 export class JsonString extends HtmlString {}
 export class DangerJsonInHtml extends HtmlString {}
-//type JsonTemplateInput <X = undefined> = (strings: TemplateStringsArray, ...values: JsonStringValues<X>[])
 function JsonTemplateProcessor(
   danger: true
-): <X = undefined>(
+): <X = unknown>(
   strings: TemplateStringsArray,
   ...values: JsonStringValues<X>[]
 ) => DangerJsonInHtml;
 function JsonTemplateProcessor(
   danger?: false | undefined
-): <X = undefined>(
+): <X = unknown>(
   strings: TemplateStringsArray,
   ...values: JsonStringValues<X>[]
 ) => JsonString;
@@ -127,7 +126,7 @@ function JsonTemplateProcessor(danger: boolean = false) {
   const constructorr = danger
     ? () => new DangerJsonInHtml()
     : () => new JsonString();
-  return function <X = undefined>(
+  return function <X = unknown>(
     strings: TemplateStringsArray,
     ...values: JsonStringValues<X>[]
   ) {

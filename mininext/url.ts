@@ -8,14 +8,14 @@ export type Form = {
   formData?: FormData;
   formName?: string;
   hiddenField?: HtmlString;
-  actionlink<Y = undefined>(
+  actionlink<Y = unknown>(
     qs?: string[] | string,
     settings?: LinkSettings
   ): (mini: Mini<Y>) => string;
   onPostSubmit<F>(cb: () => F): F | undefined;
 };
 
-export type DataMaker<X, Z = undefined> =
+export type DataMaker<X, Z = unknown> =
   | ((mini: Mini<Z>) => DataMakerReturnType<X>)
   | (() => DataMakerReturnType<X>);
 export type DataMakerReturnType<X> = X | Promise<X>;
@@ -46,7 +46,7 @@ export type NamedFormHandlerReturnType<X> =
  * const {html,json, css, data, req, form, link, svg, deliver, route, params, header, head } = mini  //pull everything out of the mini handbag
  * ```
  */
-export class Mini<X = undefined> {
+export class Mini<X = unknown> {
   html: typeof html<X>;
   css: typeof html<X>;
   json: typeof json<X>;
@@ -63,7 +63,7 @@ export class Mini<X = undefined> {
   form!: Form;
   requrl!: Readonly<URL>;
 
-  constructor(mini: Mini<undefined | any>, data: X) {
+  constructor(mini: Mini<unknown>, data: X) {
     Object.assign(this, mini);
     this.html = html<X>;
     this.css = html<X>;
@@ -99,10 +99,10 @@ export class Mini<X = undefined> {
  * const {html,json, css, data, req, form, link, svg, deliver, route, params, header, head } = mini  //pull everything out of the mini handbag
  * ```
  */
-export type HtmlHandler<Y = undefined> =
+export type HtmlHandler<Y = unknown> =
   | ((mini: Mini<Y>) => LazyHandlerReturnType)
   | (() => LazyHandlerReturnType);
-export type NamedFormHandler<Y = undefined, Z = undefined> =
+export type NamedFormHandler<Y = unknown, Z = undefined> =
   | ((mini: Mini<Y>) => NamedFormHandlerReturnType<Z>)
   | (() => NamedFormHandlerReturnType<Z>);
 
@@ -315,7 +315,7 @@ export class url {
    * @param handler just like a normal handler (aka you can return the form as a HtmlString), but you can optionally return additional data in formInfo
    * @returns - { formResponse: result of the handler, formInfo?: some info about the form. Totally up to you}
    */
-  static namedForm<X = undefined, Z = undefined>(
+  static namedForm<X = unknown, Z = undefined>(
     name: string,
     handler: NamedFormHandler<X, Z>
   ) {
