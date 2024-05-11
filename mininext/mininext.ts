@@ -59,7 +59,7 @@ async function buildBackend(backendPath: string = "backend/backend.ts") {
     outdir: path.resolve(projectRoot(), "dist"),
     naming: "backend.js",
     minify: Bun.argv[2] === "dev" ? false : true, //production
-    target: "node",
+    target: "bun",
     define: {
       FrontendScripts: JSON.stringify(FrontendScripts),
       FrontendScriptUrls: JSON.stringify(FrontendScriptUrls),
