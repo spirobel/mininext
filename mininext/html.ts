@@ -82,7 +82,9 @@ export function html<X = unknown>(
         value.every((val) => val instanceof HtmlString)
       ) {
         // If the value is an array of HtmlString objects, add the whole array as a single value
-        values[index] = value;
+        const notResolved = new HtmlString(...(value as any[]));
+        notResolved.resolved = false;
+        values[index] = notResolved;
         htmlStringArray.resolved = false; // we could bother with .find here
       } else if (typeof value === "function") {
         htmlStringArray.resolved = false;
@@ -145,7 +147,9 @@ function JsonTemplateProcessor(danger: boolean = false) {
           value.every((val) => val instanceof HtmlString)
         ) {
           // If the value is an array of HtmlString objects, add the whole array as a single value
-          values[index] = value;
+          const notResolved = new HtmlString(...(value as any[]));
+          notResolved.resolved = false;
+          values[index] = notResolved;
           jsonStringArray.resolved = false; // we could bother with .find here
         } else if (typeof value === "function") {
           jsonStringArray.resolved = false;
