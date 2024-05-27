@@ -1,5 +1,6 @@
 import { url, Mini, type HtmlHandler } from "./url";
 import { html, isError, HtmlString, head, commonHead, cssReset } from "./html";
+import type { BunPlugin, Server, WebSocketHandler } from "bun";
 import { watch } from "fs/promises";
 import * as path from "path";
 function projectRoot() {
@@ -14,7 +15,6 @@ async function build(backendPath: string = "backend/backend.ts") {
     await devServer();
   }
 }
-import type { BunPlugin } from "bun";
 
 const myPlugin: BunPlugin = {
   name: "node buffer in the frontend",
@@ -168,7 +168,10 @@ async function makeEntrypoint() {
     // @ts-ignore
     module = await import(backendImportPath);
   }
-  return module.default as (w: any) => Promise<Response>;
+  return module.default() as {
+    fetch: (req: Request, server: Server) => Promise<Response>;
+    websocket: WebSocketHandler;
+  };
 }
 export {
   url,

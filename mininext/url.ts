@@ -1,3 +1,4 @@
+import type { Server, WebSocketHandler } from "bun";
 import { htmlResponder, html, json, dangerjson, HtmlString } from "./html";
 import type { DangerJsonInHtml, JsonString, JsonStringValues } from "./html";
 export type Form = {
@@ -116,6 +117,9 @@ interface LinkSettings {
   [key: string]: string | null | undefined;
 }
 export class url {
+  static websocket: WebSocketHandler | undefined = undefined;
+  static server: Server;
+
   // direct mapping of "url string" -> function leads to Html Response
   static direct_handlers_html: ReadonlyMap<string, HtmlHandler>;
 
@@ -486,28 +490,39 @@ export class url {
       return htmlResponder(mini, unresolved, handlerHead, handlerOptions);
     }
   }
+  /**
+   * user this to set the Websocket object. Check out [the bun docs](https://bun.sh/docs/api/websockets) for more details.
+   * @param wsObject the websocketsocket object {@link WebSocketHandler}
+   */
+  static setWebsocket<T = undefined>(wsObject: WebSocketHandler<T>) {
+    url.websocket = wsObject as WebSocketHandler;
+  }
 
   /**
    * Fetch handler that is called by the server when a request is made to any of the urls.
    * @param {Request} req - The Request object.
    * @return {Promise<Response>} - The Response object.
    */
-  static async install(req: Request) {
-    //go through all the Htmlhandlers and see if there is a match
-    let res = await url.match(req);
-    if (res) return res;
+  static install() {
+    async function fetchFunction(req: Request, server: Server) {
+      if (!url.server) url.server = server;
+      //go through all the Htmlhandlers and see if there is a match
+      let res = await url.match(req);
+      if (res) return res;
 
-    //handle frontend js file serving
-    res = url.serveFrontend(req);
-    if (res) return res;
-    //handle svg file serving
-    res = url.serveSvg(req);
-    if (res) return res;
-    // go through all the Htmlhandlers again with added slash at the end.
-    res = await url.match(req, new URL(req.url).pathname + "/");
-    if (res) return res;
+      //handle frontend js file serving
+      res = url.serveFrontend(req);
+      if (res) return res;
+      //handle svg file serving
+      res = url.serveSvg(req);
+      if (res) return res;
+      // go through all the Htmlhandlers again with added slash at the end.
+      res = await url.match(req, new URL(req.url).pathname + "/");
+      if (res) return res;
 
-    return new Response("No matching url found", { status: 404 });
+      return new Response("No matching url found", { status: 404 });
+    }
+    return { fetch: fetchFunction, websocket: url.websocket };
   }
 }
 
