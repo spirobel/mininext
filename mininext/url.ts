@@ -1,6 +1,11 @@
 import type { Server, WebSocketHandler } from "bun";
 import { htmlResponder, html, json, dangerjson, HtmlString } from "./html";
-import type { DangerJsonInHtml, JsonString, JsonStringValues } from "./html";
+import type {
+  BasedHtml,
+  DangerJsonInHtml,
+  JsonString,
+  JsonStringValues,
+} from "./html";
 export type Form = {
   post: boolean;
   urlencoded: boolean;
@@ -497,7 +502,15 @@ export class url {
   static setWebsocket<T = undefined>(wsObject: WebSocketHandler<T>) {
     url.websocket = wsObject as WebSocketHandler;
   }
-
+  /**
+   * Send a message to all connected {@link ServerWebSocket} subscribed to a topic
+   * @param topic The topic to publish to
+   * @param message The data to send
+   * @returns 0 if the message was dropped, -1 if backpressure was applied, or the number of bytes sent.
+   */
+  static publishHtml(topic: string, message: BasedHtml) {
+    return url.server.publish(topic, message as string);
+  }
   /**
    * Fetch handler that is called by the server when a request is made to any of the urls.
    * @param {Request} req - The Request object.
