@@ -1,5 +1,13 @@
 import { url, Mini, type HtmlHandler } from "./url";
-import { html, isError, HtmlString, head, commonHead, cssReset } from "./html";
+import {
+  isError,
+  HtmlString,
+  BasedHtml,
+  head,
+  commonHead,
+  cssReset,
+  basedHtml as html,
+} from "./html";
 import type { BunPlugin, Server, WebSocketHandler } from "bun";
 import { watch } from "fs/promises";
 import * as path from "path";
@@ -174,11 +182,13 @@ async function makeEntrypoint() {
   };
 }
 export {
+  html,
   url,
   head,
   build,
   makeEntrypoint,
   isError,
+  BasedHtml,
   HtmlString,
   type HtmlHandler,
   Mini,

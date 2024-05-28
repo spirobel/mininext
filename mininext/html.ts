@@ -295,5 +295,48 @@ export function isError(
 }
 
 declare global {
-  var Reloader: HtmlString | undefined;
+  var Reloader: BasedHtml | HtmlString | undefined;
 }
+/**
+ * The difference between this and HtmlString is that it is fully resolved and only accepts primitive types.
+ * In plain english this means:
+ * It does not accept functions (that will be resolved at request time with (mini)=>mini.html) like mini.html does.
+ */
+export class BasedHtml extends String {}
+export type BasedHtmlValues =
+  | number
+  | string
+  | undefined
+  | null
+  | boolean
+  | BasedHtml
+  | BasedHtml[];
+//TODO make it so we can embed BasedHtml into mini.html partially resolved html strings
+/**
+ * The difference between this and HtmlString is that it is fully resolved and only accepts primitive types.
+ * @param strings - html literals
+ * @param values - values will get escaped to prevent xss
+ * @returns
+ */
+export const basedHtml = (
+  strings: TemplateStringsArray,
+  ...values: BasedHtmlValues[]
+) => {
+  // Apply escapeHtml to each value before using them in the template string
+  // In case it didn't already get escaped
+  for (const [index, value] of values.entries()) {
+    // we can pass arrays of BasedHtml and they will get flattened automatically
+    if (
+      Array.isArray(value) &&
+      value.every((val) => val instanceof BasedHtml)
+    ) {
+      // If the value is an array of BasedHtml objects, flatten it and add to ...values
+      values[index] = value.join("");
+    } else if (!(value instanceof BasedHtml)) {
+      const notEmpty = value || "";
+      // values will be escaped by default
+      values[index] = Bun.escapeHTML(notEmpty + "");
+    }
+  }
+  return new BasedHtml(String.raw({ raw: strings }, ...values));
+};
