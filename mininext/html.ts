@@ -7,6 +7,9 @@ import type {
 export type HtmlStringValues<T = unknown> =
   | HtmlString
   | HtmlString[]
+  | BasedHtml
+  | BasedHtml[]
+  | (BasedHtml | HtmlString)[]
   | string
   | number
   | HtmlHandler<T>
@@ -79,7 +82,9 @@ export function html<X = unknown>(
       // we can pass arrays of HtmlString and they will get flattened in the HtmlResponder
       if (
         Array.isArray(value) &&
-        value.every((val) => val instanceof HtmlString)
+        value.every(
+          (val) => val instanceof HtmlString || val instanceof BasedHtml
+        )
       ) {
         // If the value is an array of HtmlString objects, add the whole array as a single value
         const notResolved = new HtmlString(...(value as any[]));
@@ -95,12 +100,12 @@ export function html<X = unknown>(
           to pass through a html template function to get escaped. You can do
           html -> dangerjson -> html if you want!
         </div>`;
-      } else if (!(value instanceof HtmlString)) {
+      } else if (!(value instanceof HtmlString || value instanceof BasedHtml)) {
         const notEmpty = value || "";
         // values will be escaped by default
         values[index] = Bun.escapeHTML(notEmpty + "");
-      } else if (value instanceof HtmlString) {
-        if (!value.resolved) {
+      } else if (value instanceof HtmlString || value instanceof BasedHtml) {
+        if (value instanceof HtmlString && !value.resolved) {
           htmlStringArray.resolved = false;
         }
       }
@@ -144,7 +149,9 @@ function JsonTemplateProcessor(danger: boolean = false) {
         // we can pass arrays of HtmlString and they will get flattened in the HtmlResponder
         if (
           Array.isArray(value) &&
-          value.every((val) => val instanceof HtmlString)
+          value.every(
+            (val) => val instanceof HtmlString || val instanceof BasedHtml
+          )
         ) {
           // If the value is an array of HtmlString objects, add the whole array as a single value
           const notResolved = new HtmlString(...(value as any[]));
@@ -154,8 +161,8 @@ function JsonTemplateProcessor(danger: boolean = false) {
         } else if (typeof value === "function") {
           jsonStringArray.resolved = false;
           values[index] = value;
-        } else if (value instanceof HtmlString) {
-          if (!value.resolved) {
+        } else if (value instanceof HtmlString || value instanceof BasedHtml) {
+          if (value instanceof HtmlString && !value.resolved) {
             jsonStringArray.resolved = false;
           }
           values[index] = value;
