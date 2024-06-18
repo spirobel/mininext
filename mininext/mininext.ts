@@ -24,7 +24,22 @@ async function build(backendPath: string = "backend/backend.ts") {
   }
 }
 
-const myPlugin: BunPlugin = {
+const streamPlugin: BunPlugin = {
+  name: "node stream in the frontend",
+  setup(build) {
+    build.onResolve({ filter: /^stream$/ }, (args) => {
+      const path_to_stream_lib = path.resolve(
+        projectRoot(),
+        "node_modules/stream-browserify/index.js"
+      );
+      if (path_to_stream_lib)
+        return {
+          path: path_to_stream_lib,
+        };
+    });
+  },
+};
+const bufferPlugin: BunPlugin = {
   name: "node buffer in the frontend",
   setup(build) {
     build.onResolve({ filter: /^buffer$/ }, (args) => {
@@ -35,6 +50,21 @@ const myPlugin: BunPlugin = {
       if (path_to_buffer_lib)
         return {
           path: path_to_buffer_lib,
+        };
+    });
+  },
+};
+const cryptoPlugin: BunPlugin = {
+  name: "node crypto in the frontend",
+  setup(build) {
+    build.onResolve({ filter: /^crypto$/ }, (args) => {
+      const path_to_crypto_lib = path.resolve(
+        projectRoot(),
+        "node_modules/crypto-browserify/index.js"
+      );
+      if (path_to_crypto_lib)
+        return {
+          path: path_to_crypto_lib,
         };
     });
   },
@@ -83,7 +113,7 @@ async function buildFrontend(file: string) {
     naming: "[name]-[hash].[ext]",
     minify: Bun.argv[2] === "dev" ? false : true, //production
     target: "browser",
-    plugins: [myPlugin],
+    plugins: [bufferPlugin, streamPlugin, cryptoPlugin],
   });
   if (!result?.outputs[0]?.path) console.log(result);
   const url = path.basename(result.outputs[0].path);
