@@ -39,8 +39,11 @@ export class HtmlString extends Array {
         }
       } else if (typeof htmlPiece === "function") {
         let resolvedHtmlPiece = await htmlPiece(mini); //passing mini
+        //same cases as outer if statement
         if (resolvedHtmlPiece instanceof HtmlString) {
           resolvedHtmlPiece = await resolvedHtmlPiece.resolve(mini);
+        } else if (htmlPiece instanceof BasedHtml) {
+          this[index] = htmlPiece;
         } else {
           if (this instanceof JsonString || this instanceof DangerJsonInHtml) {
             resolvedHtmlPiece = JSON.stringify(resolvedHtmlPiece);
@@ -52,6 +55,8 @@ export class HtmlString extends Array {
         }
         // Replace the function with the resolved HTML piece in place
         this[index] = resolvedHtmlPiece;
+      } else if (htmlPiece instanceof BasedHtml) {
+        this[index] = htmlPiece;
       }
     }
     this.resolved = true;
