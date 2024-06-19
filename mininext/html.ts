@@ -109,8 +109,8 @@ export function html<X = unknown>(
         const notEmpty = value || "";
         // values will be escaped by default
         values[index] = Bun.escapeHTML(notEmpty + "");
-      } else if (value instanceof HtmlString || value instanceof BasedHtml) {
-        if (value instanceof HtmlString && !value.resolved) {
+      } else if (value instanceof HtmlString) {
+        if (!value.resolved) {
           htmlStringArray.resolved = false;
         }
       }
@@ -277,11 +277,11 @@ export async function htmlResponder(
   }
   const definitelyResolved = await maybeUnresolved.resolve(mini);
   const flattend = definitelyResolved.flat(Infinity);
-
   async function* stepGen() {
     let index = 0;
     while (index < flattend.length) {
-      yield flattend[index++];
+      const step = flattend[index++];
+      if (step) yield String(step);
     }
   }
   function Stream(a: any) {
