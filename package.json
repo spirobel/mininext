@@ -7,12 +7,10 @@
   "types": "dist/mininext.d.ts",
   "scripts": {
     "publish": "bun run build && npm publish",
-    "build": "rm -rf ./dist && tsc",
-    "preversion": "bun run build"
-
+    "build": "tsc"
   },
   "files": ["dist", "mininext"],
-  "version": "0.3.4",
+  "version": "0.3.5",
   "devDependencies": {
     "@types/bun": "latest"
   },
