@@ -126,7 +126,7 @@ export class url {
   static server: Server;
 
   // direct mapping of "url string" -> function leads to Html Response
-  static direct_handlers_html: ReadonlyMap<string, HtmlHandler>;
+  static direct_handlers_html: Map<string, HtmlHandler>;
 
   // An array of the uncompiled frontend files, example frontends[0] = "index.tsx" -> frontend/index.tsx (from the project root)
   private static frontends: Array<string> = [];
@@ -266,15 +266,31 @@ export class url {
    * use this to define your routes.
    * @example
    * ``` js
+   *   //define all routes at once
    *    url.set([
    *      ["/", (mini) => mini.html`<h1>Hello world</h1>`],
    *      ["/apple", (mini) => mini.html`<h1>Hello apple</h1>`],
    *      ["/banana", (mini) => mini.html`<h1>Hello banana</h1>`],
    *    ]);
+   *    //define or overwrite just one route
+   *  url.set("/apple", (mini)=>mini.html`<h1> Hello pineapple </h1>`)
    * ```
    */
-  static set<K extends string>(entries: [K, HtmlHandler][]) {
-    url.direct_handlers_html = new Map(entries) as ReadonlyMap<K, HtmlHandler>;
+  static set<K extends string>(entries: [K, HtmlHandler][]): void;
+  static set(urlPath: string, handler: HtmlHandler): void;
+  static set<K extends string>(
+    entries: [K, HtmlHandler][] | string,
+    handler?: HtmlHandler
+  ) {
+    if (typeof entries === "string" && handler) {
+      if (url.direct_handlers_html) {
+        url.direct_handlers_html.set(entries, handler);
+      } else {
+        url.direct_handlers_html = new Map([[entries, handler]]);
+      }
+    }
+    if (typeof entries !== "string")
+      url.direct_handlers_html = new Map(entries) as Map<K, HtmlHandler>;
   }
   /**
    * wrap your handlers in this if you mutate something to prevent CSRF issues.
