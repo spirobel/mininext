@@ -68,6 +68,8 @@ export class Mini<X = unknown> {
   params!: URLSearchParams;
   form!: Form;
   requrl!: Readonly<URL>;
+  /** [MDN Reference](https://developer.mozilla.org/docs/Web/API/Response/redirect_static) */
+  redirect!: (url: string | URL, status?: number) => void;
 
   constructor(mini: Mini<unknown>, data: X) {
     Object.assign(this, mini);
@@ -434,7 +436,8 @@ export class url {
     }
     const handler = url.direct_handlers_html.get(reqPath);
     if (handler) {
-      //this is the source of mini
+      let redirectTarget: string | URL | null = null;
+      let redirectStatus: number | undefined = undefined;
       let handlerHead: HtmlHandler | HtmlString | undefined = undefined;
       let handlerOptions: ResponseInit = {
         headers: {
@@ -463,6 +466,7 @@ export class url {
         formData = await req.formData();
       }
 
+      //this is the source of mini
       const mini = new Mini(
         {
           requrl: miniurl,
@@ -504,10 +508,17 @@ export class url {
           options: (options) => {
             handlerOptions = options;
           },
+          redirect: (url: string | URL, status?: number) => {
+            redirectTarget = url;
+            redirectStatus = status;
+          },
         },
         undefined
       );
       const unresolved = await handler(mini); //passing mini
+      if (redirectTarget) {
+        return Response.redirect(redirectTarget, redirectStatus);
+      }
       return htmlResponder(mini, unresolved, handlerHead, handlerOptions);
     }
   }
