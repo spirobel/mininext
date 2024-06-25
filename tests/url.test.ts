@@ -20,7 +20,7 @@ test("urls work with all variations of added slashes", async () => {
       expect(responseText).not.toInclude("No matching url found");
       expect(responseText).toInclude("ok");
     } catch (error) {
-      error.message = `this url did not match correctly ${testurl}`;
+      error.message = `this url did not match correctly ${testurl}: response text: ${responseText}`;
       throw error;
     }
   }
@@ -32,9 +32,9 @@ test("urls work with all variations of added slashes", async () => {
   url.set("SingleTestWithoutSlash", (mini) => mini.html`ok`);
   for (const testurl of [
     "/test",
-    "testWithoutSlash",
+    "/testWithoutSlash", // important to note: the request object always has a preceding slash
     "/SingleTest",
-    "SingleTestWithoutSlash",
+    "/SingleTestWithoutSlash", // important to note: the request object always has a preceding slash
   ]) {
     await makeRequest(testurl);
     await makeRequest(testurl + "/");

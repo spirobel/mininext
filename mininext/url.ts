@@ -128,7 +128,7 @@ export class url {
   static server: Server;
 
   // direct mapping of "url string" -> function leads to Html Response
-  static direct_handlers_html: Map<string, HtmlHandler>;
+  static direct_handlers_html: Map<string, HtmlHandler> = new Map();
 
   // An array of the uncompiled frontend files, example frontends[0] = "index.tsx" -> frontend/index.tsx (from the project root)
   private static frontends: Array<string> = [];
@@ -284,15 +284,19 @@ export class url {
     entries: [K, HtmlHandler][] | string,
     handler?: HtmlHandler
   ) {
-    if (typeof entries === "string" && handler) {
-      if (url.direct_handlers_html) {
-        url.direct_handlers_html.set(entries, handler);
-      } else {
-        url.direct_handlers_html = new Map([[entries, handler]]);
+    function addUrl(entryUrl: string, entryHandler: HtmlHandler) {
+      for (const u of url.generateVariations(entryUrl)) {
+        url.direct_handlers_html.set(u, entryHandler);
       }
     }
+
+    if (typeof entries === "string" && handler) {
+      addUrl(entries, handler);
+    }
     if (typeof entries !== "string")
-      url.direct_handlers_html = new Map(entries) as Map<K, HtmlHandler>;
+      for (const [entryUrl, entryHandler] of entries) {
+        addUrl(entryUrl, entryHandler);
+      }
   }
   /**
    * wrap your handlers in this if you mutate something to prevent CSRF issues.
@@ -440,7 +444,8 @@ export class url {
     if (inputString.startsWith("/")) {
       variations.push(inputString); // With leading slash
     } else {
-      variations.push("/" + inputString); // With leading slash
+      inputString = "/" + inputString;
+      variations.push(inputString); // With leading slash
     }
 
     // Check if the string ends with a slash and add/remove variations accordingly
