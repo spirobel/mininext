@@ -420,13 +420,48 @@ export class url {
     return updatedUrl.toString().slice(GOOFY_HACK.length);
   }
   /**
+   * users expect links to work with or without a trailing slash.
+   * Developers expect that that links work with or without a preceding slash.
+   * We make sure that these expectations are met when using url.set and url.get.
+   * (by adding all the variations to the url.direct_handlers Map)
+   * @param {string} inputString - the url
+   * @returns {string[]} - returns array of variations (added slash in the beginning, added, removed slash at the end)
+   */
+  static generateVariations(inputString: string) {
+    const variations = [];
+
+    // Special case for the index route
+    if (inputString === "/") {
+      variations.push("/");
+      return variations;
+    }
+
+    // Check if the string starts with a slash and add/remove variations accordingly
+    if (inputString.startsWith("/")) {
+      variations.push(inputString); // With leading slash
+    } else {
+      variations.push("/" + inputString); // With leading slash
+    }
+
+    // Check if the string ends with a slash and add/remove variations accordingly
+    if (inputString.endsWith("/")) {
+      variations.push(inputString.slice(0, -1)); // Without trailing slash
+    } else {
+      variations.push(inputString + "/"); // With trailing slash
+    }
+
+    return variations;
+  }
+  /**
    * This method retrieves a url from the urls array. If the url does not exist in the urls array, null will be returned.
    * @param {string} Url - The url to retrieve.
    * @return {string} - The retrieved url.
    * @throws Will throw an Error if the provided url is not found in the urls array.
    */
   static get(Url: string) {
-    const foundUrl = url.direct_handlers_html.get(Url);
+    const foundUrl = url.direct_handlers_html.get(
+      url.generateVariations(Url)[0]
+    );
     if (!foundUrl) {
       return null;
     }
