@@ -545,6 +545,7 @@ export class url {
    */
   static install() {
     async function fetchFunction(req: Request, server: Server) {
+      console.log(req.url);
       if (!url.server) url.server = server;
       //go through all the Htmlhandlers and see if there is a match
       let res = await url.match(req);
@@ -556,10 +557,20 @@ export class url {
       //handle svg file serving
       res = url.serveSvg(req);
       if (res) return res;
-      // go through all the Htmlhandlers again with added slash at the end.
-      res = await url.match(req, new URL(req.url).pathname + "/");
-      if (res) return res;
-
+      const routePath = new URL(req.url).pathname;
+      console.log(routePath);
+      // test all variations of adding and removing slashes at the beginning and end of the route
+      if (routePath.endsWith("/")) {
+        res = await url.match(req, routePath.slice(0, -1));
+        if (res) return res;
+        res = await url.match(req, routePath.slice(1, -1));
+        if (res) return res;
+      } else {
+        res = await url.match(req, routePath + "/");
+        if (res) return res;
+        res = await url.match(req, routePath.slice(1) + "/");
+        if (res) return res;
+      }
       return new Response("No matching url found", { status: 404 });
     }
     return { fetch: fetchFunction, websocket: url.websocket };
