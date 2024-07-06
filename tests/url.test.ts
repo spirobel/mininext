@@ -40,3 +40,22 @@ test("urls work with all variations of added slashes", async () => {
     await makeRequest(testurl + "/");
   }
 });
+
+test("test that all urls get removed", async () => {
+  url.set("UrlRemoveTestWithoutSlash", (mini) => mini.html`ok`);
+  url.remove("UrlRemoveTestWithoutSlash");
+  expect(
+    url.direct_handlers_html.get("/UrlRemoveTestWithoutSlash")
+  ).toBeUndefined();
+  url.set("UrlRemoveTestWithoutSlash", (mini) => mini.html`ok`);
+  url.remove("UrlRemoveTestWithoutSlash/");
+  expect(
+    url.direct_handlers_html.get("/UrlRemoveTestWithoutSlash")
+  ).toBeUndefined();
+  url.set("/UrlRemoveTestWithSlash", (mini) => mini.html`ok`);
+  url.remove("UrlRemoveTestWithSlash/");
+  expect(
+    url.direct_handlers_html.get("/UrlRemoveTestWithoutSlash")
+  ).toBeUndefined();
+  console.log(url.direct_handlers_html);
+});
