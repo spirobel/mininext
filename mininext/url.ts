@@ -6,11 +6,29 @@ import type {
   JsonString,
   JsonStringValues,
 } from "./html";
+/**
+ * A helper function that helps narrow unknown objects
+ * @param object - the object of type unknown that is to be narrowed
+ * @param key - the key that may or may not exist in object
+ * @returns true if the key is present and false if not
+ * @example
+ * ``` js
+ * has(this.form.formJson, "formName") &&
+ * this.form.formJson.formName === this.form.formName
+ * ```
+ * https://stackoverflow.com/questions/70028907/narrowing-an-object-of-type-unknown
+ */
+export function has<T, K extends string>(
+  object: T,
+  key: K
+): object is T & object & Record<K, unknown> {
+  return typeof object === "object" && object !== null && key in object;
+}
 export type Form = {
   post: boolean;
   urlencoded: boolean;
   multipart: boolean;
-  formJson?: any;
+  formJson?: unknown;
   formData?: FormData;
   formName?: string;
   hiddenField?: HtmlString;
@@ -87,7 +105,7 @@ export class Mini<X = unknown> {
         ) {
           return cb();
         } else if (
-          this.form.formJson &&
+          has(this.form.formJson, "formName") &&
           this.form.formJson.formName === this.form.formName
         ) {
           return cb();
@@ -504,7 +522,7 @@ export class url {
         },
       };
       const post = req.method === "POST";
-      let formJson: any;
+      let formJson: unknown;
       let formData: FormData | undefined;
       const urlencoded = (req.headers.get("Content-Type") + "").includes(
         "application/x-www-form-urlencoded"

@@ -1,4 +1,4 @@
-import { url, Mini, type HtmlHandler } from "./url";
+import { url, Mini, has, type HtmlHandler } from "./url";
 import {
   isError,
   HtmlString,
@@ -212,6 +212,7 @@ async function makeEntrypoint() {
   };
 }
 export {
+  has,
   html,
   url,
   head,
