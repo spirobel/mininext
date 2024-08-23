@@ -1,10 +1,10 @@
 import type { Server, WebSocketHandler } from "bun";
 import { htmlResponder, html, json, dangerjson, HtmlString } from "./html";
-import type {
+import {
   BasedHtml,
-  DangerJsonInHtml,
-  JsonString,
-  JsonStringValues,
+  type DangerJsonInHtml,
+  type JsonString,
+  type JsonStringValues,
 } from "./html";
 /**
  * A helper function that helps narrow unknown objects
@@ -168,12 +168,17 @@ export class url {
 
     return foundEntry && foundEntry[0];
   }
-  static frontend(path: string, snippet?: HtmlHandler | BasedHtml) {
+  static frontend<X>(path: string, snippet?: HtmlHandler<X> | BasedHtml) {
     const frontendIndex = url.frontends.push(path) - 1;
     const scriptUrl = FrontendScriptUrls[frontendIndex];
-
-    return html` ${snippet}
-      <script type="module" src="${scriptUrl}"></script>`; // return an html script tag with the index hash
+    if (snippet instanceof BasedHtml || !snippet) {
+      return html` ${snippet}
+        <script type="module" src="${scriptUrl}"></script>`; // return an html script tag with the index hash
+    }
+    return (mini: Mini<X>) => {
+      return mini.html`${snippet}
+        <script type="module" src="${scriptUrl}"></script>`;
+    };
   }
   /**
    * This is used by the frontend bundler in order to find all frontends and their corresponding script files.

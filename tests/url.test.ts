@@ -1,5 +1,5 @@
 import { expect, test, mock } from "bun:test";
-import { html, url } from "../mininext/mininext";
+import { html, Mini, url } from "../mininext/mininext";
 // Example of creating a mock request object
 const mockRequestObject: unknown = {
   method: "GET", // or 'POST', etc.
@@ -57,5 +57,13 @@ test("test that all urls get removed", async () => {
   expect(
     url.direct_handlers_html.get("/UrlRemoveTestWithoutSlash")
   ).toBeUndefined();
-  console.log(url.direct_handlers_html);
+});
+
+test("test frontend type passes through", async () => {
+  //mock FrontendScriptUrls
+  global.FrontendScriptUrls = [];
+  const testScriptTag = url.frontend(
+    "",
+    (mini: Mini<{ testtype: string }>) => mini.html``
+  );
 });
