@@ -66,4 +66,6 @@ test("test frontend type passes through", async () => {
     "",
     (mini: Mini<{ testtype: string }>) => mini.html``
   );
+  const testScriptTag2 = url.frontend("", (mini) => mini.html``);
+  const testScriptTag3 = url.frontend("", html``);
 });

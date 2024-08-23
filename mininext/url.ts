@@ -168,6 +168,11 @@ export class url {
 
     return foundEntry && foundEntry[0];
   }
+  static frontend<X>(path: string, snippet?: BasedHtml): HtmlString;
+  static frontend<X>(
+    path: string,
+    snippet?: HtmlHandler<X>
+  ): (mini: Mini<X>) => HtmlString;
   static frontend<X>(path: string, snippet?: HtmlHandler<X> | BasedHtml) {
     const frontendIndex = url.frontends.push(path) - 1;
     const scriptUrl = FrontendScriptUrls[frontendIndex];
