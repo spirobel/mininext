@@ -76,7 +76,18 @@ async function buildBackend(backendPath: string = "backend/backend.ts") {
   const i = await import(path.resolve(projectRoot(), backendPath));
 
   for (const frontend of url.getFrontends()) {
-    const f = await buildFrontend(frontend);
+    const firstPlaceToLook = path.resolve(
+      path.dirname(frontend.callerPath),
+      `frontend/${frontend.path}`
+    );
+    const secondPlaceToLook = path.resolve(
+      projectRoot(),
+      `frontend/${frontend.path}`
+    );
+    const frontEndPath = (await Bun.file(firstPlaceToLook).exists())
+      ? firstPlaceToLook
+      : secondPlaceToLook;
+    const f = await buildFrontend(frontEndPath);
     FrontendScriptUrls.push("/" + f.url);
     FrontendScripts.push(f.script);
   }
@@ -108,7 +119,7 @@ async function buildBackend(backendPath: string = "backend/backend.ts") {
 
 async function buildFrontend(file: string) {
   const result = await Bun.build({
-    entrypoints: [path.resolve(projectRoot(), `frontend/${file}`)],
+    entrypoints: [file],
     outdir: path.resolve(projectRoot(), "dist"),
     naming: "[name]-[hash].[ext]",
     minify: Bun.argv[2] === "dev" ? false : true, //production
@@ -210,6 +221,16 @@ async function makeEntrypoint() {
     fetch: (req: Request, server: Server) => Promise<Response>;
     websocket: WebSocketHandler;
   };
+}
+export function getCallerFilePath(): string {
+  // const stack = new Error().stack?.split("\n");
+  // //console.log(stack);
+  // if (!stack) return "";
+  // return stack[2].slice(
+  //   stack[2].lastIndexOf("(") + 1,
+  //   stack[2].lastIndexOf(")") + 3
+  // );
+  return __dirname;
 }
 export {
   has,

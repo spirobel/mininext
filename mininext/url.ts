@@ -149,7 +149,7 @@ export class url {
   static direct_handlers_html: Map<string, HtmlHandler> = new Map();
 
   // An array of the uncompiled frontend files, example frontends[0] = "index.tsx" -> frontend/index.tsx (from the project root)
-  private static frontends: Array<string> = [];
+  private static frontends: Array<{ path: string; callerPath: string }> = [];
   private static svgs: Map<string, ResponseInit> = new Map();
 
   static svg(
@@ -174,7 +174,15 @@ export class url {
     snippet?: HtmlHandler<X>
   ): (mini: Mini<X>) => HtmlString;
   static frontend<X>(path: string, snippet?: HtmlHandler<X> | BasedHtml) {
-    const frontendIndex = url.frontends.push(path) - 1;
+    const stack = new Error().stack?.split("\n");
+    let callerPath = "";
+    if (stack) {
+      callerPath = stack[2].slice(
+        stack[2].lastIndexOf("(") + 1,
+        stack[2].lastIndexOf(".") + 3
+      );
+    }
+    const frontendIndex = url.frontends.push({ path, callerPath }) - 1;
     const scriptUrl = FrontendScriptUrls[frontendIndex];
     if (snippet instanceof BasedHtml || !snippet) {
       return html` ${snippet}
