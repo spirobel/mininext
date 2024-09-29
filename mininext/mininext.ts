@@ -69,6 +69,21 @@ const cryptoPlugin: BunPlugin = {
     });
   },
 };
+const nodeHttpsPlugin: BunPlugin = {
+  name: "node https in the frontend",
+  setup(build) {
+    build.onResolve({ filter: /^https$/ }, (args) => {
+      const path_to_node_https_lib = path.resolve(
+        projectRoot(),
+        "node_modules/https-browserify/index.js"
+      );
+      if (path_to_node_https_lib)
+        return {
+          path: path_to_node_https_lib,
+        };
+    });
+  },
+};
 async function buildBackend(backendPath: string = "backend/backend.ts") {
   global.FrontendScriptUrls = [];
   global.FrontendScripts = [];
@@ -124,7 +139,7 @@ async function buildFrontend(file: string) {
     naming: "[name]-[hash].[ext]",
     minify: Bun.argv[2] === "dev" ? false : true, //production
     target: "browser",
-    plugins: [bufferPlugin, streamPlugin, cryptoPlugin],
+    plugins: [bufferPlugin, streamPlugin, cryptoPlugin, nodeHttpsPlugin],
   });
   if (!result?.outputs[0]?.path) console.log(result);
   const url = path.basename(result.outputs[0].path);
