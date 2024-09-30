@@ -8,7 +8,7 @@ import {
   cssReset,
   basedHtml as html,
 } from "./html";
-import type { BunPlugin, Server, WebSocketHandler } from "bun";
+import { $, type BunPlugin, type Server, type WebSocketHandler } from "bun";
 import { watch } from "fs/promises";
 import * as path from "path";
 function projectRoot() {
@@ -18,6 +18,11 @@ declare global {
   var PROJECT_ROOT: string | undefined;
 }
 async function build(backendPath: string = "backend/backend.ts") {
+  if (Bun.argv[2] === "frontend") {
+    const newFrontend = await buildFrontend(Bun.argv[3]);
+    process.stdout.write(JSON.stringify(newFrontend));
+    return 0;
+  }
   await buildBackend(backendPath);
   if (Bun.argv[2] === "dev") {
     await devServer();
@@ -102,9 +107,13 @@ async function buildBackend(backendPath: string = "backend/backend.ts") {
     const frontEndPath = (await Bun.file(firstPlaceToLook).exists())
       ? firstPlaceToLook
       : secondPlaceToLook;
-    const f = await buildFrontend(frontEndPath);
-    FrontendScriptUrls.push("/" + f.url);
-    FrontendScripts.push(f.script);
+    try {
+      const f = await $`bun run build.ts frontend ${frontEndPath}`.json();
+      FrontendScriptUrls.push("/" + f.url);
+      FrontendScripts.push(f.script);
+    } catch (error) {
+      console.log(await $`bun run build.ts frontend ${frontEndPath}`.text());
+    }
   }
   for (const svgPath of url.getSvgPaths()) {
     const parsedSvgPath = path.parse(svgPath);
