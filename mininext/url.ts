@@ -135,7 +135,10 @@ export type NamedFormHandler<Y = unknown, Z = undefined> =
 declare global {
   var FrontendScripts: Array<string>; // An array of the bundled scriptFiles corresponding to the frontend files, example frontends[0] = "index.tsx" -> FrontendScripts[0] = CONTENT OF frontend/index.js
   var FrontendScriptUrls: Array<string>;
-  var bundledSVGs: Record<string, { svgContent: string; svgPath: string }>;
+  var bundledSVGs: Record<
+    string,
+    { svgContent: string; svgFilePath: string; options: ResponseInit }
+  >;
 }
 export type ScriptTag = (...params: any[]) => Promise<HtmlString>;
 interface LinkSettings {
@@ -150,10 +153,20 @@ export class url {
 
   // An array of the uncompiled frontend files, example frontends[0] = "index.tsx" -> frontend/index.tsx (from the project root)
   private static frontends: Array<{ path: string; callerPath: string }> = [];
-  private static svgs: Map<string, ResponseInit> = new Map();
-
+  private static svgs: Array<{
+    svgFilePath: string;
+    callerPath: string;
+    options: ResponseInit;
+  }> = [];
+  /**
+   * This function takes care of bundling your svg (icons?) into the webapp
+   * they will have a hash in the name to break the cache when needed
+   * @param svgFilePath first place to look: svgs folder in the same path the calling file, after that path from project root.
+   * @param options ResponseInit, default headers for an svg
+   * @returns url to the svg
+   */
   static svg(
-    path: string,
+    svgFilePath: string,
     options: ResponseInit = {
       headers: {
         "Content-Type": "image/svg+xml",
@@ -161,13 +174,26 @@ export class url {
       },
     }
   ) {
-    url.svgs.set(path, options);
-    var foundEntry = Object.entries(bundledSVGs).find(
-      ([key, value]) => value.svgPath === path
+    const stack = new Error().stack?.split("\n");
+    let callerPath = "";
+    if (stack) {
+      callerPath = stack[2].slice(
+        stack[2].lastIndexOf("(") + 1,
+        stack[2].lastIndexOf(".") + 3
+      );
+    }
+    url.svgs.push({ svgFilePath, callerPath, options });
+    var foundSvg = Object.entries(bundledSVGs).find(
+      ([key, value]) => value.svgFilePath === svgFilePath
     );
-
-    return foundEntry && foundEntry[0];
+    return foundSvg && foundSvg[0];
   }
+  /**
+   * this function helps you build frontends with any kind of framework (no framework at all) and get the bundle
+   * @param path first place to look: frontend folder in the same path the calling file, after that /frontend path from project root.
+   * @param snippet this is handy to pass in a piece of html that often goes along with a certain frontend
+   * @returns a html script element with the bundled frontend as the src
+   */
   static frontend<X>(path: string, snippet?: BasedHtml): HtmlString;
   static frontend<X>(
     path: string,
@@ -199,8 +225,8 @@ export class url {
   static getFrontends() {
     return url.frontends;
   }
-  static getSvgPaths() {
-    return [...url.svgs.keys()];
+  static getSvgs() {
+    return url.svgs;
   }
   static serveFrontend(req: Request) {
     const reqPath = new URL(req.url).pathname;
@@ -218,10 +244,7 @@ export class url {
     const reqPath = new URL(req.url).pathname;
     const resolvedSvg = bundledSVGs[reqPath];
     if (resolvedSvg) {
-      return new Response(
-        resolvedSvg.svgContent,
-        url.svgs.get(resolvedSvg.svgPath)
-      );
+      return new Response(resolvedSvg.svgContent, resolvedSvg.options);
     }
   }
   /**

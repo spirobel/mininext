@@ -115,16 +115,23 @@ async function buildBackend(backendPath: string = "backend/backend.ts") {
       console.log(await $`bun run build.ts frontend ${frontEndPath}`.text());
     }
   }
-  for (const svgPath of url.getSvgPaths()) {
-    const parsedSvgPath = path.parse(svgPath);
-    const svgContent = Bun.file(
-      path.join(projectRoot() + "/backend/", svgPath)
+  for (const svg of url.getSvgs()) {
+    const firstPlaceToLook = path.resolve(
+      path.dirname(svg.callerPath),
+      `svgs/${svg.svgFilePath}`
     );
+    const secondPlaceToLook = path.resolve(projectRoot(), `${svg.svgFilePath}`);
+    const svgResolvedFilePath = (await Bun.file(firstPlaceToLook).exists())
+      ? firstPlaceToLook
+      : secondPlaceToLook;
+    const parsedSvgPath = path.parse(svgResolvedFilePath);
+    const svgContent = Bun.file(svgResolvedFilePath);
     const svgHash = Bun.hash(await svgContent.arrayBuffer());
     const svgUrl = `/${parsedSvgPath.name}-${svgHash}.svg`;
     bundledSVGs[svgUrl] = {
       svgContent: await svgContent.text(),
-      svgPath,
+      svgFilePath: svg.svgFilePath,
+      options: svg.options,
     };
   }
   const res = await Bun.build({
