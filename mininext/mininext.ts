@@ -112,6 +112,19 @@ async function buildBackend(backendPath: string = "backend/backend.ts") {
       FrontendScriptUrls.push("/" + f.url);
       FrontendScripts.push(f.script);
     } catch (error) {
+      if (
+        error &&
+        typeof error === "object" &&
+        "exitCode" in error &&
+        "stdout" in error &&
+        "stderr" in error &&
+        error.stdout instanceof Buffer &&
+        error.stderr instanceof Buffer
+      ) {
+        console.error(`Failed with exit code: ${error.exitCode}`);
+        console.error("Standard Output:", error.stdout.toString());
+        console.error("Standard Error:", error.stderr.toString());
+      }
       console.log(await $`bun run build.ts frontend ${frontEndPath}`.text());
     }
   }
