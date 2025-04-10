@@ -6,11 +6,7 @@ import {
   type JsonString,
   type JsonStringValues,
 } from "./html";
-export type MiniNextRouteValue<T extends string> =
-  | false
-  | Response
-  | RouterTypes.RouteHandler<T>
-  | RouterTypes.RouteHandlerObject<T>;
+export type MiniNextRouteValue<T extends string> = HtmlHandler<unknown, T>;
 /**
  * A helper function that helps narrow unknown objects
  * @param object - the object of type unknown that is to be narrowed
@@ -77,14 +73,14 @@ export type NamedFormHandlerReturnType<X> =
  * const {html,json, css, data, req, form, link, svg, deliver, route, params, header, head } = mini  //pull everything out of the mini handbag
  * ```
  */
-export class Mini<X = unknown> {
+export class Mini<X = unknown, ROUTE extends string = ""> {
   html: typeof html<X>;
   css: typeof html<X>;
   json: typeof json<X>;
   dangerjson: typeof dangerjson<X>;
 
   data: X;
-  req!: Request;
+  req!: BunRequest<ROUTE>;
   head!: (head: HtmlHandler | HtmlString) => undefined;
   headers!: (headers: HeadersInit, overwrite?: boolean) => undefined;
   options!: (options: ResponseInit) => undefined;
@@ -132,8 +128,8 @@ export class Mini<X = unknown> {
  * const {html,json, css, data, req, form, link, svg, deliver, route, params, header, head } = mini  //pull everything out of the mini handbag
  * ```
  */
-export type HtmlHandler<Y = unknown> =
-  | ((mini: Mini<Y>) => LazyHandlerReturnType)
+export type HtmlHandler<Y = unknown, ROUTE extends string = ""> =
+  | ((mini: Mini<Y, ROUTE>) => LazyHandlerReturnType)
   | (() => LazyHandlerReturnType);
 export type NamedFormHandler<Y = unknown, Z = undefined> =
   | ((mini: Mini<Y>) => NamedFormHandlerReturnType<Z>)
@@ -664,7 +660,7 @@ export class url {
     }
   }
   /**
-   * user this to set the Websocket object. Check out [the bun docs](https://bun.sh/docs/api/websockets) for more details.
+   * use this to set the Websocket object. Check out [the bun docs](https://bun.sh/docs/api/websockets) for more details.
    * @param wsObject the websocketsocket object {@link WebSocketHandler}
    */
   static setWebsocket<T = undefined>(wsObject: WebSocketHandler<T>) {
