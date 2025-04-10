@@ -6,6 +6,11 @@ import {
   type JsonString,
   type JsonStringValues,
 } from "./html";
+export type MiniNextRouteValue<T extends string> =
+  | false
+  | Response
+  | RouterTypes.RouteHandler<T>
+  | RouterTypes.RouteHandlerObject<T>;
 /**
  * A helper function that helps narrow unknown objects
  * @param object - the object of type unknown that is to be narrowed
@@ -343,10 +348,17 @@ export class url {
    * ```
    */
   static set<K extends string>(entries: [K, HtmlHandler][]): void;
+  static set<
+    R extends {
+      [X in keyof R]: MiniNextRouteValue<Extract<X, string>>;
+    }
+  >({ routes }: { routes: R }): void;
   static set(urlPath: string, handler: HtmlHandler): void;
   static set<
     K extends string,
-    R extends { [K in keyof R]: RouterTypes.RouteValue<Extract<K, string>> }
+    R extends {
+      [X in keyof R]: MiniNextRouteValue<Extract<X, string>>;
+    }
   >(
     entries: [K, HtmlHandler][] | string | { routes: R },
     handler?: HtmlHandler
