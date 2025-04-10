@@ -1,4 +1,4 @@
-import type { Server, WebSocketHandler } from "bun";
+import type { Server, WebSocketHandler, RouterTypes, BunRequest } from "bun";
 import { htmlResponder, html, json, dangerjson, HtmlString } from "./html";
 import {
   BasedHtml,
@@ -38,7 +38,9 @@ export type Form = {
   ): (mini: Mini<Y>) => string;
   onPostSubmit<F>(cb: () => F): F | undefined;
 };
-
+export type BunRoutes<
+  R extends { [K in keyof R]: RouterTypes.RouteValue<Extract<K, string>> }
+> = R;
 export type DataMaker<X, Z = unknown> =
   | ((mini: Mini, rerun?: Z) => DataMakerReturnType<X>)
   | (() => DataMakerReturnType<X>);
@@ -147,6 +149,7 @@ interface LinkSettings {
 export class url {
   static websocket: WebSocketHandler | undefined = undefined;
   static server: Server;
+  static routes: BunRoutes<{}>;
 
   // direct mapping of "url string" -> function leads to Html Response
   static direct_handlers_html: Map<string, HtmlHandler> = new Map();
@@ -181,6 +184,7 @@ export class url {
         stack[2].lastIndexOf("(") + 1,
         stack[2].lastIndexOf(".") + 3
       );
+      callerPath = callerPath.slice(callerPath.search("at") + 2).trim();
     }
     url.svgs.push({ svgFilePath, callerPath, options });
     var foundSvg = Object.entries(bundledSVGs).find(
@@ -207,6 +211,7 @@ export class url {
         stack[2].lastIndexOf("(") + 1,
         stack[2].lastIndexOf(".") + 3
       );
+      callerPath = callerPath.slice(callerPath.search("at") + 2).trim();
     }
     const frontendIndex = url.frontends.push({ path, callerPath }) - 1;
     const scriptUrl = FrontendScriptUrls[frontendIndex];
@@ -339,8 +344,11 @@ export class url {
    */
   static set<K extends string>(entries: [K, HtmlHandler][]): void;
   static set(urlPath: string, handler: HtmlHandler): void;
-  static set<K extends string>(
-    entries: [K, HtmlHandler][] | string,
+  static set<
+    K extends string,
+    R extends { [K in keyof R]: RouterTypes.RouteValue<Extract<K, string>> }
+  >(
+    entries: [K, HtmlHandler][] | string | { routes: R },
     handler?: HtmlHandler
   ) {
     function addUrl(entryUrl: string, entryHandler: HtmlHandler) {
@@ -352,7 +360,10 @@ export class url {
     if (typeof entries === "string" && handler) {
       addUrl(entries, handler);
     }
-    if (typeof entries !== "string")
+    if (typeof entries !== "string" && "routes" in entries) {
+      url.routes = entries.routes;
+    }
+    if (typeof entries !== "string" && !("routes" in entries))
       for (const [entryUrl, entryHandler] of entries) {
         addUrl(entryUrl, entryHandler);
       }
@@ -677,7 +688,11 @@ export class url {
 
       return new Response("No matching url found", { status: 404 });
     }
-    return { fetch: fetchFunction, websocket: url.websocket };
+    return {
+      fetch: fetchFunction,
+      websocket: url.websocket,
+      routes: url.routes,
+    };
   }
 }
 
