@@ -7,6 +7,9 @@ import {
   type JsonStringValues,
 } from "./html";
 export type MiniNextRouteValue<T extends string> = HtmlHandler<unknown, T>;
+export type BunRoutes<
+  R extends { [K in keyof R]: RouterTypes.RouteValue<Extract<K, string>> }
+> = R;
 /**
  * A helper function that helps narrow unknown objects
  * @param object - the object of type unknown that is to be narrowed
@@ -39,9 +42,6 @@ export type Form = {
   ): (mini: Mini<Y>) => string;
   onPostSubmit<F>(cb: () => F): F | undefined;
 };
-export type BunRoutes<
-  R extends { [K in keyof R]: RouterTypes.RouteValue<Extract<K, string>> }
-> = R;
 export type DataMaker<X, Z = unknown> =
   | ((mini: Mini, rerun?: Z) => DataMakerReturnType<X>)
   | (() => DataMakerReturnType<X>);
@@ -566,98 +566,94 @@ export class url {
     }
     return Url;
   }
-  static async match(req: Request, reqPath?: string) {
-    const miniurl: Readonly<URL> = Object.freeze(new URL(req.url));
-    if (typeof reqPath === "undefined") {
-      reqPath = miniurl.pathname;
-    }
-    const handler = url.direct_handlers_html.get(reqPath);
-    if (handler) {
-      let redirectTarget: string | URL | null = null;
-      let redirectStatus: number | undefined = undefined;
-      let handlerHead: HtmlHandler | HtmlString | undefined = undefined;
-      let handlerOptions: ResponseInit = {
-        headers: {
-          "Content-Type": "text/html; charset=utf-8",
-        },
-      };
-      const post = req.method === "POST";
-      let formJson: unknown;
-      let formData: FormData | undefined;
-      const urlencoded = (req.headers.get("Content-Type") + "").includes(
-        "application/x-www-form-urlencoded"
-      );
-      const multipart = (req.headers.get("Content-Type") + "").includes(
-        "multipart/form-data"
-      );
-      if (post && !urlencoded && !multipart) {
-        const length = Number(req.headers.get("content-length"));
-        const bodyNotEmpty = length > 0;
-        if (bodyNotEmpty) {
-          formJson = await req.json();
-        } else {
-          formJson = {};
-        }
-      }
-      if (post && (urlencoded || multipart)) {
-        formData = await req.formData();
-      }
 
-      //this is the source of mini
-      const mini = new Mini(
-        {
-          requrl: miniurl,
-          data: undefined,
-          req,
-          html,
-          css: html,
-          deliver: url.deliver,
-          route: reqPath,
-          params: new URL(req.url).searchParams,
-          json,
-          form: {
-            post,
-            urlencoded,
-            multipart,
-            formJson,
-            formData,
-            onPostSubmit(cb) {
-              if (post) {
-                return cb();
-              }
-            },
-            actionlink: (qs = "", settings) => url.link(reqPath, qs, settings),
-          },
-          dangerjson,
-          head: (head) => {
-            handlerHead = head;
-          },
-          headers: (headers, overwrite = false) => {
-            if (overwrite) {
-              handlerOptions.headers = headers;
-            } else {
-              handlerOptions.headers = {
-                ...handlerOptions.headers,
-                ...headers,
-              };
+  static async handleWithMini(req: BunRequest<string>, handler: HtmlHandler) {
+    const miniurl: Readonly<URL> = Object.freeze(new URL(req.url));
+    const reqPath = miniurl.pathname;
+    let redirectTarget: string | URL | null = null;
+    let redirectStatus: number | undefined = undefined;
+    let handlerHead: HtmlHandler | HtmlString | undefined = undefined;
+    let handlerOptions: ResponseInit = {
+      headers: {
+        "Content-Type": "text/html; charset=utf-8",
+      },
+    };
+    const post = req.method === "POST";
+    let formJson: unknown;
+    let formData: FormData | undefined;
+    const urlencoded = (req.headers.get("Content-Type") + "").includes(
+      "application/x-www-form-urlencoded"
+    );
+    const multipart = (req.headers.get("Content-Type") + "").includes(
+      "multipart/form-data"
+    );
+    if (post && !urlencoded && !multipart) {
+      const length = Number(req.headers.get("content-length"));
+      const bodyNotEmpty = length > 0;
+      if (bodyNotEmpty) {
+        formJson = await req.json();
+      } else {
+        formJson = {};
+      }
+    }
+    if (post && (urlencoded || multipart)) {
+      formData = await req.formData();
+    }
+
+    //this is the source of mini
+    const mini = new Mini(
+      {
+        requrl: miniurl,
+        data: undefined,
+        req: req as BunRequest<"">,
+        html,
+        css: html,
+        deliver: url.deliver,
+        route: reqPath,
+        params: new URL(req.url).searchParams,
+        json,
+        form: {
+          post,
+          urlencoded,
+          multipart,
+          formJson,
+          formData,
+          onPostSubmit(cb) {
+            if (post) {
+              return cb();
             }
           },
-          options: (options) => {
-            handlerOptions = options;
-          },
-          redirect: (url: string | URL, status?: number) => {
-            redirectTarget = url;
-            redirectStatus = status;
-          },
+          actionlink: (qs = "", settings) => url.link(reqPath, qs, settings),
         },
-        undefined
-      );
-      const unresolved = await handler(mini); //passing mini
-      if (redirectTarget) {
-        return Response.redirect(redirectTarget, redirectStatus);
-      }
-      return htmlResponder(mini, unresolved, handlerHead, handlerOptions);
+        dangerjson,
+        head: (head) => {
+          handlerHead = head;
+        },
+        headers: (headers, overwrite = false) => {
+          if (overwrite) {
+            handlerOptions.headers = headers;
+          } else {
+            handlerOptions.headers = {
+              ...handlerOptions.headers,
+              ...headers,
+            };
+          }
+        },
+        options: (options) => {
+          handlerOptions = options;
+        },
+        redirect: (url: string | URL, status?: number) => {
+          redirectTarget = url;
+          redirectStatus = status;
+        },
+      },
+      undefined
+    );
+    const unresolved = await handler(mini); //passing mini
+    if (redirectTarget) {
+      return Response.redirect(redirectTarget, redirectStatus);
     }
+    return htmlResponder(mini, unresolved, handlerHead, handlerOptions);
   }
   /**
    * use this to set the Websocket object. Check out [the bun docs](https://bun.sh/docs/api/websockets) for more details.
@@ -681,14 +677,29 @@ export class url {
    * @return {Promise<Response>} - The Response object.
    */
   static install() {
+    //TODO handle route handlers and match them to mininext
+
+    for (const route in url.routes) {
+      console.log(route);
+      //TODO handle route object split by methods and pull them through mininext
+      const handler: HtmlHandler = (url.routes as any)[route];
+      (url.routes as any)[route] = (req: BunRequest) =>
+        url.handleWithMini(req, handler);
+      console.log(handler);
+    }
+    //TODO add fronted + svg to routes object
+    for (const [route, handler] of url.direct_handlers_html) {
+      (url.routes as any)[route] = (req: BunRequest) =>
+        url.handleWithMini(req, handler);
+    }
     async function fetchFunction(req: Request, server: Server) {
       if (!url.server) url.server = server;
       //go through all the Htmlhandlers and see if there is a match
-      let res = await url.match(req);
-      if (res) return res;
+      // let res = await url.match(req);
+      // if (res) return res;
 
       //handle frontend js file serving
-      res = url.serveFrontend(req);
+      let res = url.serveFrontend(req);
       if (res) return res;
       //handle svg file serving
       res = url.serveSvg(req);
