@@ -6,7 +6,21 @@ import {
   type JsonString,
   type JsonStringValues,
 } from "./html";
-export type MiniNextRouteValue<T extends string> = HtmlHandler<unknown, T>;
+export type HTTPMethod =
+  | "GET"
+  | "POST"
+  | "PUT"
+  | "DELETE"
+  | "PATCH"
+  | "HEAD"
+  | "OPTIONS";
+
+export type MiniNextRouteHandlerObject<T extends string> = {
+  [K in HTTPMethod]?: HtmlHandler<unknown, T>;
+};
+export type MiniNextRouteValue<T extends string> =
+  | HtmlHandler<unknown, T>
+  | MiniNextRouteHandlerObject<T>;
 export type BunRoutes<
   R extends { [K in keyof R]: RouterTypes.RouteValue<Extract<K, string>> }
 > = R;
@@ -682,10 +696,23 @@ export class url {
     for (const route in url.routes) {
       console.log(route);
       //TODO handle route object split by methods and pull them through mininext
-      const handler: HtmlHandler = (url.routes as any)[route];
-      (url.routes as any)[route] = (req: BunRequest) =>
-        url.handleWithMini(req, handler);
-      console.log(handler);
+      const handler: HtmlHandler | MiniNextRouteHandlerObject<""> = (
+        url.routes as any
+      )[route];
+      //HERE: go through all HTTP methods
+      if (typeof handler === "function") {
+        (url.routes as any)[route] = (req: BunRequest) =>
+          url.handleWithMini(req, handler);
+        console.log(handler);
+      } else {
+        const newHandlerObject: RouterTypes.RouteHandlerObject<string> = {};
+        for (const HTTPmethod in handler) {
+          console.log(handler);
+          newHandlerObject[HTTPmethod as HTTPMethod] = (req: BunRequest) =>
+            url.handleWithMini(req, handler[HTTPmethod as HTTPMethod]!);
+        }
+        (url.routes as any)[route] = newHandlerObject;
+      }
     }
     //TODO add fronted + svg to routes object
     for (const [route, handler] of url.direct_handlers_html) {
