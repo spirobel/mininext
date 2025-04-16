@@ -391,22 +391,6 @@ export class url {
       }
   }
   /**
-   * use this to remove routes.
-   * @param urlPath - the route to remove
-   * @example
-   * ``` js
-   * let perma_link_defined_by_editor_or_admin_user_that_changed = "/haha"
-   * url.remove(perma_link_defined_by_editor_or_admin_user_that_changed);
-   * // add new url after removing the old one (that might come from a sqlite db)
-   * url.set("/huhu", (mini)=> mini.html`huhu`)
-   * ```
-   */
-  static remove(urlPath: string) {
-    for (const u of url.generateVariations(urlPath)) {
-      url.direct_handlers_html.delete(u);
-    }
-  }
-  /**
    * wrap your handlers in this if you mutate something to prevent CSRF issues.
    * @param handler - normal html handler with mini as the argument
    * @returns a wrapped html handler that will only be called when the request is post
@@ -721,9 +705,6 @@ export class url {
     }
     async function fetchFunction(req: Request, server: Server) {
       if (!url.server) url.server = server;
-      //go through all the Htmlhandlers and see if there is a match
-      // let res = await url.match(req);
-      // if (res) return res;
 
       //handle frontend js file serving
       let res = url.serveFrontend(req);
