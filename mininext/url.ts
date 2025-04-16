@@ -260,13 +260,6 @@ export class url {
       });
     }
   }
-  static serveSvg(req: Request) {
-    const reqPath = new URL(req.url).pathname;
-    const resolvedSvg = bundledSVGs[reqPath];
-    if (resolvedSvg) {
-      return new Response(resolvedSvg.svgContent, resolvedSvg.options);
-    }
-  }
   /**
    * tool to expose data to a frontend as a global variable.
    * @param name  this will be added as window.name to the window object in the frontend
@@ -703,14 +696,16 @@ export class url {
       (url.routes as any)[route] = (req: BunRequest) =>
         url.handleWithMini(req, handler);
     }
+    for (const svgUrl in bundledSVGs) {
+      const resolvedSvg = bundledSVGs[svgUrl];
+      (url.routes as any)[svgUrl] = (req: BunRequest) =>
+        new Response(resolvedSvg.svgContent, resolvedSvg.options);
+    }
     async function fetchFunction(req: Request, server: Server) {
       if (!url.server) url.server = server;
 
       //handle frontend js file serving
       let res = url.serveFrontend(req);
-      if (res) return res;
-      //handle svg file serving
-      res = url.serveSvg(req);
       if (res) return res;
 
       return new Response("No matching url found", { status: 404 });
