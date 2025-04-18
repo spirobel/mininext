@@ -150,11 +150,18 @@ export type NamedFormHandler<Y = unknown, Z = undefined> =
   | (() => NamedFormHandlerReturnType<Z>);
 
 declare global {
-  var FrontendScripts: Array<string>; // An array of the bundled scriptFiles corresponding to the frontend files, example frontends[0] = "index.tsx" -> FrontendScripts[0] = CONTENT OF frontend/index.js
-  var FrontendScriptUrls: Array<string>;
+  var bundledFrontends: Record<
+    string,
+    { frontendFilePath: string; frontendContent: string; position: number }
+  >;
   var bundledSVGs: Record<
     string,
-    { svgContent: string; svgFilePath: string; options: ResponseInit }
+    {
+      svgContent: string;
+      svgFilePath: string;
+      options: ResponseInit;
+      position: number;
+    }
   >;
 }
 export type ScriptTag = (...params: any[]) => Promise<HtmlString>;
@@ -170,10 +177,15 @@ export class url {
   static direct_handlers_html: Map<string, HtmlHandler> = new Map();
 
   // An array of the uncompiled frontend files, example frontends[0] = "index.tsx" -> frontend/index.tsx (from the project root)
-  private static frontends: Array<{ path: string; callerPath: string }> = [];
+  private static frontends: Array<{
+    frontendFilePath: string;
+    callerPath: string;
+    position: number;
+  }> = [];
   private static svgs: Array<{
     svgFilePath: string;
     callerPath: string;
+    position: number;
     options: ResponseInit;
   }> = [];
   /**
@@ -201,9 +213,17 @@ export class url {
       );
       callerPath = callerPath.slice(callerPath.search("at") + 2).trim();
     }
-    url.svgs.push({ svgFilePath, callerPath, options });
+    const position = url.svgs.length;
+    //we register the svg for bundleing.
+    url.svgs.push({
+      svgFilePath,
+      callerPath,
+      options,
+      position: url.svgs.length,
+    });
+    //this will be filled in by the bundling step.
     var foundSvg = Object.entries(bundledSVGs).find(
-      ([key, value]) => value.svgFilePath === svgFilePath
+      ([key, value]) => value.position === position
     );
     return foundSvg && foundSvg[0];
   }
@@ -213,12 +233,15 @@ export class url {
    * @param snippet this is handy to pass in a piece of html that often goes along with a certain frontend
    * @returns a html script element with the bundled frontend as the src
    */
-  static frontend<X>(path: string, snippet?: BasedHtml): HtmlString;
+  static frontend<X>(frontendFilePath: string, snippet?: BasedHtml): HtmlString;
   static frontend<X>(
-    path: string,
+    frontendFilePath: string,
     snippet?: HtmlHandler<X>
   ): (mini: Mini<X>) => HtmlString;
-  static frontend<X>(path: string, snippet?: HtmlHandler<X> | BasedHtml) {
+  static frontend<X>(
+    frontendFilePath: string,
+    snippet?: HtmlHandler<X> | BasedHtml
+  ) {
     const stack = new Error().stack?.split("\n");
     let callerPath = "";
     if (stack) {
@@ -228,8 +251,16 @@ export class url {
       );
       callerPath = callerPath.slice(callerPath.search("at") + 2).trim();
     }
-    const frontendIndex = url.frontends.push({ path, callerPath }) - 1;
-    const scriptUrl = FrontendScriptUrls[frontendIndex];
+    const position = url.frontends.length;
+
+    //we register the frontend for bundleing.
+    url.frontends.push({ frontendFilePath, callerPath, position });
+    //this will be filled in by the bundling step.
+    const bundledFrontend = Object.entries(bundledFrontends).find(
+      ([key, value]) => value.position === position
+    );
+    if (!bundledFrontend) return;
+    const scriptUrl = bundledFrontend[0];
     if (snippet instanceof BasedHtml || !snippet) {
       return html` ${snippet}
         <script type="module" src="${scriptUrl}"></script>`; // return an html script tag with the index hash
@@ -247,18 +278,6 @@ export class url {
   }
   static getSvgs() {
     return url.svgs;
-  }
-  static serveFrontend(req: Request) {
-    const reqPath = new URL(req.url).pathname;
-    const index = FrontendScriptUrls.indexOf(reqPath);
-
-    if (index !== -1) {
-      return new Response(FrontendScripts[index], {
-        headers: {
-          "Content-Type": "application/javascript; charset=utf-8",
-        },
-      });
-    }
   }
   /**
    * tool to expose data to a frontend as a global variable.
@@ -558,7 +577,12 @@ export class url {
     return Url;
   }
 
-  static async handleWithMini(req: BunRequest<string>, handler: HtmlHandler) {
+  static async handleWithMini(
+    req: BunRequest<string>,
+    server: Server,
+    handler: HtmlHandler
+  ) {
+    if (!url.server) url.server = server;
     const miniurl: Readonly<URL> = Object.freeze(new URL(req.url));
     const reqPath = miniurl.pathname;
     let redirectTarget: string | URL | null = null;
@@ -668,46 +692,47 @@ export class url {
    * @return {Promise<Response>} - The Response object.
    */
   static install() {
-    //TODO handle route handlers and match them to mininext
-
     for (const route in url.routes) {
-      console.log(route);
-      //TODO handle route object split by methods and pull them through mininext
+      //handle route object split by methods and pull them through mininext
       const handler: HtmlHandler | MiniNextRouteHandlerObject<""> = (
         url.routes as any
       )[route];
-      //HERE: go through all HTTP methods
       if (typeof handler === "function") {
-        (url.routes as any)[route] = (req: BunRequest) =>
-          url.handleWithMini(req, handler);
-        console.log(handler);
+        (url.routes as any)[route] = (req: BunRequest, server: Server) =>
+          url.handleWithMini(req, server, handler);
       } else {
         const newHandlerObject: RouterTypes.RouteHandlerObject<string> = {};
         for (const HTTPmethod in handler) {
-          console.log(handler);
-          newHandlerObject[HTTPmethod as HTTPMethod] = (req: BunRequest) =>
-            url.handleWithMini(req, handler[HTTPmethod as HTTPMethod]!);
+          newHandlerObject[HTTPmethod as HTTPMethod] = (
+            req: BunRequest,
+            server: Server
+          ) =>
+            url.handleWithMini(req, server, handler[HTTPmethod as HTTPMethod]!);
         }
         (url.routes as any)[route] = newHandlerObject;
       }
     }
     //TODO add fronted + svg to routes object
     for (const [route, handler] of url.direct_handlers_html) {
-      (url.routes as any)[route] = (req: BunRequest) =>
-        url.handleWithMini(req, handler);
+      (url.routes as any)[route] = (req: BunRequest, server: Server) =>
+        url.handleWithMini(req, server, handler);
     }
     for (const svgUrl in bundledSVGs) {
       const resolvedSvg = bundledSVGs[svgUrl];
-      (url.routes as any)[svgUrl] = (req: BunRequest) =>
+      (url.routes as any)[svgUrl] = (req: BunRequest, server: Server) =>
         new Response(resolvedSvg.svgContent, resolvedSvg.options);
     }
-    async function fetchFunction(req: Request, server: Server) {
-      if (!url.server) url.server = server;
 
-      //handle frontend js file serving
-      let res = url.serveFrontend(req);
-      if (res) return res;
-
+    for (const frontendUrl in bundledFrontends) {
+      const resolvedFrontend = bundledFrontends[frontendUrl];
+      (url.routes as any)[frontendUrl] = (req: BunRequest, server: Server) =>
+        new Response(resolvedFrontend.frontendContent, {
+          headers: {
+            "Content-Type": "application/javascript; charset=utf-8",
+          },
+        });
+    }
+    function fetchFunction(req: Request, server: Server) {
       return new Response("No matching url found", { status: 404 });
     }
     return {

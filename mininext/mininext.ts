@@ -90,27 +90,31 @@ const nodeHttpsPlugin: BunPlugin = {
   },
 };
 async function buildBackend(backendPath: string = "backend/backend.ts") {
-  global.FrontendScriptUrls = [];
-  global.FrontendScripts = [];
+  global.bundledFrontends = {};
   global.bundledSVGs = {};
   const i = await import(path.resolve(projectRoot(), backendPath));
 
   for (const frontend of url.getFrontends()) {
     const firstPlaceToLook = path.resolve(
       path.dirname(frontend.callerPath),
-      `frontend/${frontend.path}`
+      `frontend/${frontend.frontendFilePath}`
     );
     const secondPlaceToLook = path.resolve(
       projectRoot(),
-      `frontend/${frontend.path}`
+      `frontend/${frontend.frontendFilePath}`
     );
     const frontEndPath = (await Bun.file(firstPlaceToLook).exists())
       ? firstPlaceToLook
       : secondPlaceToLook;
     try {
-      const f = await $`bun run build.ts frontend ${frontEndPath}`.json();
-      FrontendScriptUrls.push("/" + f.url);
-      FrontendScripts.push(f.script);
+      const frontendResult =
+        await $`bun run build.ts frontend ${frontEndPath}`.json();
+
+      bundledFrontends[`/${frontendResult.url}`] = {
+        frontendContent: frontendResult.script,
+        frontendFilePath: frontend.frontendFilePath,
+        position: frontend.position,
+      };
     } catch (error) {
       if (
         error &&
@@ -144,6 +148,7 @@ async function buildBackend(backendPath: string = "backend/backend.ts") {
     bundledSVGs[svgUrl] = {
       svgContent: await svgContent.text(),
       svgFilePath: svg.svgFilePath,
+      position: svg.position,
       options: svg.options,
     };
   }
@@ -154,8 +159,7 @@ async function buildBackend(backendPath: string = "backend/backend.ts") {
     minify: Bun.argv[2] === "dev" ? false : true, //production
     target: "bun",
     define: {
-      FrontendScripts: JSON.stringify(FrontendScripts),
-      FrontendScriptUrls: JSON.stringify(FrontendScriptUrls),
+      bundledFrontends: JSON.stringify(bundledFrontends),
       bundledSVGs: JSON.stringify(bundledSVGs),
     },
   });
