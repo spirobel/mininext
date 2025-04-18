@@ -171,7 +171,7 @@ interface LinkSettings {
 export class url {
   static websocket: WebSocketHandler | undefined = undefined;
   static server: Server;
-  static routes: BunRoutes<{}>;
+  static routes: BunRoutes<{}> = {};
 
   // direct mapping of "url string" -> function leads to Html Response
   static direct_handlers_html: Map<string, HtmlHandler> = new Map();
