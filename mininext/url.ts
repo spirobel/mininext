@@ -24,7 +24,7 @@ export type MiniNextRouteValue<T extends string> =
 export type BunRoutes<
   R extends { [K in keyof R]: RouterTypes.RouteValue<Extract<K, string>> }
 > = R;
-export type MiniNextRoutes = Record<string, MiniNextRouteValue<string>>;
+export type MiniNextRoutes = Record<string, MiniNextRouteValue<"">>;
 
 /**
  * A helper function that helps narrow unknown objects
@@ -397,7 +397,7 @@ export class url {
       addUrl(entries, handler);
     }
     if (typeof entries !== "string" && "routes" in entries) {
-      url.routes = entries.routes;
+      url.routes = entries.routes as MiniNextRoutes;
     }
     if (typeof entries !== "string" && !("routes" in entries))
       for (const [entryUrl, entryHandler] of entries) {
