@@ -24,6 +24,9 @@ export type MiniNextRouteValue<T extends string> =
 export type BunRoutes<
   R extends { [K in keyof R]: RouterTypes.RouteValue<Extract<K, string>> }
 > = R;
+export type MiniNextRoutes<
+  R extends { [X in keyof R]: MiniNextRouteValue<Extract<X, string>> }
+> = R;
 /**
  * A helper function that helps narrow unknown objects
  * @param object - the object of type unknown that is to be narrowed
@@ -171,7 +174,7 @@ interface LinkSettings {
 export class url {
   static websocket: WebSocketHandler | undefined = undefined;
   static server: Server;
-  static routes: BunRoutes<{}> = {};
+  static routes: MiniNextRoutes<{}> = {};
 
   // direct mapping of "url string" -> function leads to Html Response
   static direct_handlers_html: Map<string, HtmlHandler> = new Map();
@@ -692,13 +695,16 @@ export class url {
    * @return {Promise<Response>} - The Response object.
    */
   static install() {
+    const transformedRouteObject: Record<
+      string,
+      RouterTypes.RouteValue<string>
+    > = {};
     for (const route in url.routes) {
       //handle route object split by methods and pull them through mininext
-      const handler: HtmlHandler | MiniNextRouteHandlerObject<""> = (
-        url.routes as any
-      )[route];
+      const handler: HtmlHandler | MiniNextRouteHandlerObject<""> =
+        url.routes[route];
       if (typeof handler === "function") {
-        (url.routes as any)[route] = (req: BunRequest, server: Server) =>
+        transformedRouteObject[route] = (req: BunRequest, server: Server) =>
           url.handleWithMini(req, server, handler);
       } else {
         const newHandlerObject: RouterTypes.RouteHandlerObject<string> = {};
@@ -712,7 +718,6 @@ export class url {
         (url.routes as any)[route] = newHandlerObject;
       }
     }
-    //TODO add fronted + svg to routes object
     for (const [route, handler] of url.direct_handlers_html) {
       (url.routes as any)[route] = (req: BunRequest, server: Server) =>
         url.handleWithMini(req, server, handler);
@@ -738,7 +743,7 @@ export class url {
     return {
       fetch: fetchFunction,
       websocket: url.websocket,
-      routes: url.routes,
+      routes: transformedRouteObject,
     };
   }
 }
