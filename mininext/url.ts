@@ -24,9 +24,8 @@ export type MiniNextRouteValue<T extends string> =
 export type BunRoutes<
   R extends { [K in keyof R]: RouterTypes.RouteValue<Extract<K, string>> }
 > = R;
-export type MiniNextRoutes<
-  R extends { [X in keyof R]: MiniNextRouteValue<Extract<X, string>> }
-> = R;
+export type MiniNextRoutes = Record<string, MiniNextRouteValue<string>>;
+
 /**
  * A helper function that helps narrow unknown objects
  * @param object - the object of type unknown that is to be narrowed
@@ -174,7 +173,7 @@ interface LinkSettings {
 export class url {
   static websocket: WebSocketHandler | undefined = undefined;
   static server: Server;
-  static routes: MiniNextRoutes<{}> = {};
+  static routes: MiniNextRoutes = {};
 
   // direct mapping of "url string" -> function leads to Html Response
   static direct_handlers_html: Map<string, HtmlHandler> = new Map();
@@ -699,10 +698,10 @@ export class url {
       string,
       RouterTypes.RouteValue<string>
     > = {};
+
     for (const route in url.routes) {
       //handle route object split by methods and pull them through mininext
-      const handler: HtmlHandler | MiniNextRouteHandlerObject<""> =
-        url.routes[route];
+      const handler = url.routes[route];
       if (typeof handler === "function") {
         transformedRouteObject[route] = (req: BunRequest, server: Server) =>
           url.handleWithMini(req, server, handler);
@@ -715,22 +714,22 @@ export class url {
           ) =>
             url.handleWithMini(req, server, handler[HTTPmethod as HTTPMethod]!);
         }
-        (url.routes as any)[route] = newHandlerObject;
+        transformedRouteObject[route] = newHandlerObject;
       }
     }
     for (const [route, handler] of url.direct_handlers_html) {
-      (url.routes as any)[route] = (req: BunRequest, server: Server) =>
+      transformedRouteObject[route] = (req: BunRequest, server: Server) =>
         url.handleWithMini(req, server, handler);
     }
     for (const svgUrl in bundledSVGs) {
       const resolvedSvg = bundledSVGs[svgUrl];
-      (url.routes as any)[svgUrl] = (req: BunRequest, server: Server) =>
+      transformedRouteObject[svgUrl] = (req: BunRequest, server: Server) =>
         new Response(resolvedSvg.svgContent, resolvedSvg.options);
     }
 
     for (const frontendUrl in bundledFrontends) {
       const resolvedFrontend = bundledFrontends[frontendUrl];
-      (url.routes as any)[frontendUrl] = (req: BunRequest, server: Server) =>
+      transformedRouteObject[frontendUrl] = (req: BunRequest, server: Server) =>
         new Response(resolvedFrontend.frontendContent, {
           headers: {
             "Content-Type": "application/javascript; charset=utf-8",
