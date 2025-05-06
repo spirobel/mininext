@@ -509,10 +509,7 @@ export class url {
     // Create a new URL object from the current location
     // https://github.com/whatwg/url/issues/531#issuecomment-1337050285
     const GOOFY_HACK = "http://goofyhack.com";
-    const updatedUrl = new URL(
-      url.get(Url) || "/url_not_found_error",
-      GOOFY_HACK
-    );
+    const updatedUrl = new URL(Url, GOOFY_HACK);
     for (const q of qs) {
       // Use URLSearchParams to set the name query parameter
       const reqParam = new URL(req.url).searchParams.get(q);
@@ -562,21 +559,6 @@ export class url {
     }
 
     return variations;
-  }
-  /**
-   * This method retrieves a url from the urls array. If the url does not exist in the urls array, null will be returned.
-   * @param {string} Url - The url to retrieve.
-   * @return {string} - The retrieved url.
-   * @throws Will throw an Error if the provided url is not found in the urls array.
-   */
-  static get(Url: string) {
-    const foundUrl = url.direct_handlers_html.get(
-      url.generateVariations(Url)[0]
-    );
-    if (!foundUrl) {
-      return null;
-    }
-    return Url;
   }
 
   static async handleWithMini(
