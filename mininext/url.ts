@@ -16,11 +16,10 @@ export type HTTPMethod =
   | "OPTIONS";
 
 export type MiniNextRouteHandlerObject<T extends string> = {
-  [K in HTTPMethod]?: HtmlHandler<unknown, T> | HtmlHandler;
+  [K in HTTPMethod]?: HtmlHandler<unknown, T>;
 };
 export type MiniNextRouteValue<T extends string> =
   | HtmlHandler<unknown, T>
-  | HtmlHandler
   | MiniNextRouteHandlerObject<T>;
 export type BunRoutes<
   R extends { [K in keyof R]: RouterTypes.RouteValue<Extract<K, string>> }
