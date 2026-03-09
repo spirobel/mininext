@@ -2,7 +2,6 @@ import {
   getCacheEntry,
   getResolvedMiniHtmlStringThrows,
   type CacheAndCursor,
-  type ClickHandler,
   type PrimitiveValue,
   type ResolvedMiniCacheValue,
 } from "./minicache";
@@ -19,7 +18,7 @@ export function resolveMiniValue(
 
   if (typeof value === "function") {
     const component = value(mini);
-    // if this happened we need to save the handlers to the cache
+    // if this happened we need to save the state to the cache
     return component.resolve(mini);
   }
   if (typeof value === "object" && "resolve" in value)
@@ -31,7 +30,6 @@ export function resolveMiniHtmlString(
   unresolvedValues: MiniValue[],
   mini: Mini,
   slots: string[],
-  handlers: ClickHandler[] | null,
 ): ResolvedMiniHtmlString {
   const resolvedValues: ResolvedMiniValue[] = [];
   let index = 0;
@@ -44,7 +42,6 @@ export function resolveMiniHtmlString(
   }
 
   return {
-    handlers,
     slots,
     stringLiterals,
     values: resolvedValues,
@@ -62,7 +59,6 @@ export type ResolvedMiniHtmlString = {
   stringLiterals: StringArray;
   values: ResolvedMiniValue[];
   slots: string[];
-  handlers: ClickHandler[] | null;
   render: (
     target: Element | HTMLElement,
     cacheAndCursor?: CacheAndCursor,
@@ -112,7 +108,7 @@ export function resolve(
     const { slots, values } = resolveValuesForCache(unresolvedValues, cac);
 
     cac.cache.set(cac.cursor, {
-      value: { stringLiterals, values, slots, handlers: null, state: null },
+      value: { stringLiterals, values, slots, state: null },
       dirty: true,
     });
   } else if (cacheEntry && typeof cacheEntry.value !== "object") {
@@ -122,7 +118,6 @@ export function resolve(
       stringLiterals,
       values,
       slots,
-      handlers: null,
       state: null,
     };
   } else {
@@ -157,16 +152,9 @@ export function resolve(
 
   const cacheValue = getResolvedMiniHtmlStringThrows(cac);
   const slots = cacheValue.slots;
-  const handlers = cacheValue.handlers;
   // we also know slots exist
   if (!slots) throw new Error("slots not found");
-  return resolveMiniHtmlString(
-    stringLiterals,
-    unresolvedValues,
-    mini,
-    slots,
-    handlers,
-  );
+  return resolveMiniHtmlString(stringLiterals, unresolvedValues, mini, slots);
 }
 function deleteAllChildren(cac: CacheAndCursor, last = true) {
   const cacheEntry = getCacheEntry(cac);
@@ -177,7 +165,7 @@ function deleteAllChildren(cac: CacheAndCursor, last = true) {
   }
   const cacheValue = getResolvedMiniHtmlStringThrows(cac);
   if (!cacheValue.slots) {
-    // when attaching handlers we have a placeholder cache entry with slots null
+    // when attaching state we have a placeholder cache entry with slots null
     return;
   }
   for (const child of cacheValue.slots) {

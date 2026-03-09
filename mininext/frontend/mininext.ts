@@ -1,5 +1,4 @@
 import {
-  clickHandler,
   state,
   type CacheAndCursor,
   type PrimitiveValue,
@@ -10,20 +9,16 @@ export { renderRoot } from "./minidom";
 export { createRouter, type Params } from "./minirouter";
 export type Mini = {
   html: typeof html;
-  click: (name: string, cb: () => void) => string;
   state: <T>(name: string, value: T) => StateObject<T>;
   cacheAndCursor: CacheAndCursor;
   flatten(
     htmlStringArray: MiniHtmlString[],
-    flattenRootFn?: (htmlstrings: MiniHtmlString) => MiniHtmlString
+    flattenRootFn?: (htmlstrings: MiniHtmlString) => MiniHtmlString,
   ): MiniHtmlString;
 };
 export function makeNewMini(cac: CacheAndCursor): Mini {
   return {
     html,
-    click: (name, handler) => {
-      return clickHandler(name, handler, cac);
-    },
     state: (name, value) => {
       return state(name, value, cac);
     },
@@ -53,14 +48,14 @@ export function html(
   };
 }
 export function standardFlattenRoot(
-  htmlstrings: MiniHtmlString
+  htmlstrings: MiniHtmlString,
 ): MiniHtmlString {
   return html`<div>${htmlstrings}</div>`;
 }
 
 export function flatten(
   htmlStringArray: MiniHtmlString[],
-  flattenRootFn = standardFlattenRoot
+  flattenRootFn = standardFlattenRoot,
 ): MiniHtmlString {
   const flattenedArray = combineMiniHtmlStrings(htmlStringArray);
   return flattenValues(flattenRootFn(flattenedArray));
@@ -88,7 +83,7 @@ export function flattenValues(miniHtmlString: MiniHtmlString): MiniHtmlString {
          you want to flatten. This is not the place for complex logic,
          it is just to wrap your array in an <ul>, <ol> or <div> element.
          
-         (every mini html string needs to have only one root element)`
+         (every mini html string needs to have only one root element)`,
       );
     } else if (typeof value === "object" && "resolve" in value) {
       const priorLiteral = literalsArray[index];
@@ -116,7 +111,7 @@ export function flattenValues(miniHtmlString: MiniHtmlString): MiniHtmlString {
 }
 function combineMiniHtmlStrings(htmlstrings: MiniHtmlString[]): MiniHtmlString {
   const stringLiterals = combineTemplateStringsArrays(
-    htmlstrings.map((hs) => hs.stringLiterals)
+    htmlstrings.map((hs) => hs.stringLiterals),
   );
   const values = htmlstrings.flatMap((hs) => hs.values);
 

@@ -1,5 +1,4 @@
 import {
-  attachHandlers,
   getCacheEntryThrows,
   getResolvedMiniHtmlStringThrows,
   type CacheAndCursor,
@@ -47,7 +46,6 @@ export function render(
       cacheEntry.el = idmap.get(childId) as HTMLElement;
       children.set(childId, cacheEntry);
     }
-    attachHandlers(idmap, cac);
   }
 
   if (!cacheEntry.dirty) {
