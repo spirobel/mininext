@@ -2,10 +2,14 @@ import {
   getCacheEntry,
   getResolvedMiniHtmlStringThrows,
   type CacheAndCursor,
-  type PrimitiveValue,
   type ResolvedMiniCacheValue,
 } from "./minicache";
-import { makeNewMini, type Mini, type MiniValue } from "./mininext";
+import {
+  makeNewMini,
+  type Mini,
+  type MiniValue,
+  type PrimitiveValue,
+} from "../mininext";
 import { isInside, render, type StringArray } from "./minirender";
 
 export function resolveMiniValue(

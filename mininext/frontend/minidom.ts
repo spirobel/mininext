@@ -1,5 +1,5 @@
-import type { CacheAndCursor, CacheObject, MiniCache } from "./minicache";
-import { makeNewMini, type Mini, type MiniHtmlString } from "./mininext";
+import type { CacheAndCursor, CacheObject } from "./minicache";
+import { makeNewMini, type Mini, type MiniHtmlString } from "../mininext";
 
 export type RootOptions = {
   component: (mini: Mini) => MiniHtmlString;

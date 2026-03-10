@@ -1,3 +1,4 @@
+import type { PrimitiveValue, StateObject } from "../mininext";
 import type { StringArray } from "./minirender";
 
 export function getCacheEntry(cacheAndCursor: CacheAndCursor) {
@@ -69,8 +70,6 @@ export type CacheAndCursor = {
   cursor: string;
 };
 
-export type PrimitiveValue = string | number;
-
 export type ResolvedMiniCacheHtmlString = {
   stringLiterals: StringArray | null;
   values: ResolvedMiniCacheValue[] | null;
@@ -81,8 +80,3 @@ export type ResolvedMiniCacheValue =
   | PrimitiveValue
   | ResolvedMiniChildHtmlString;
 export type ResolvedMiniChildHtmlString = { childId: string };
-
-export type StateObject<T = unknown> = {
-  value: T;
-  name: string;
-};
