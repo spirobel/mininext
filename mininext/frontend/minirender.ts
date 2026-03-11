@@ -120,7 +120,6 @@ function escapeHtml(string?: ResolvedMiniCacheValue): string {
   div.textContent = string;
   return div.innerHTML;
 }
-export type StringArray = string[] | TemplateStringsArray;
 
 function htmlPortion(html: string): HTMLElement {
   const template = document.createElement("template");

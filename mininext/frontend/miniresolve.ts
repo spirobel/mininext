@@ -9,8 +9,9 @@ import {
   type Mini,
   type MiniValue,
   type PrimitiveValue,
+  type StringArray,
 } from "../mininext";
-import { isInside, render, type StringArray } from "./minirender";
+import { isInside, render } from "./minirender";
 
 export function resolveMiniValue(
   value: MiniValue,

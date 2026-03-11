@@ -1,4 +1,4 @@
-import { state, type CacheAndCursor } from "./frontend/minicache";
+import { state, type CacheAndCursor } from "./minicache";
 import { resolve, type ResolvedMiniHtmlString } from "./frontend/miniresolve";
 export { renderRoot } from "./frontend/minidom";
 export { createRouter, type Params } from "./frontend/minirouter";
@@ -161,3 +161,5 @@ function createTemplateStringsArray(strings: string[]): TemplateStringsArray {
 
   return Object.freeze(stringsArray) as TemplateStringsArray;
 }
+
+export type StringArray = string[] | TemplateStringsArray;
