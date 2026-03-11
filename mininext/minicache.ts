@@ -1,5 +1,5 @@
-import type { PrimitiveValue, StateObject } from "../mininext";
-import type { StringArray } from "./minirender";
+import type { PrimitiveValue, StateObject } from "./mininext";
+import type { StringArray } from "./frontend/minirender";
 
 export function getCacheEntry(cacheAndCursor: CacheAndCursor) {
   return cacheAndCursor.cache.get(cacheAndCursor.cursor);

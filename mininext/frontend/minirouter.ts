@@ -1,4 +1,4 @@
-import type { Mini, MiniHtmlString } from "./mininext";
+import type { Mini, MiniHtmlString } from "../mininext";
 
 export type ExtractRouteParam<Path extends string> =
   Path extends `:${infer Param}/${infer Rest}`

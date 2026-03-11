@@ -4,7 +4,7 @@ import {
   type CacheAndCursor,
   type CacheObject,
   type ResolvedMiniCacheValue,
-} from "./minicache";
+} from "../minicache";
 
 export function render(
   target: Element | HTMLElement,

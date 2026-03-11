@@ -3,7 +3,7 @@ import {
   getResolvedMiniHtmlStringThrows,
   type CacheAndCursor,
   type ResolvedMiniCacheValue,
-} from "./minicache";
+} from "../minicache";
 import {
   makeNewMini,
   type Mini,
