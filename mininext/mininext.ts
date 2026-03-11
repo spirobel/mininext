@@ -1,5 +1,6 @@
 import { state, type CacheAndCursor } from "./minicache";
 import { resolve, type ResolvedMiniHtmlString } from "./frontend/miniresolve";
+import { resolve as backendResolve } from "./backend/miniresolve";
 export { renderRoot } from "./frontend/minidom";
 export { createRouter, type Params } from "./frontend/minirouter";
 
@@ -20,7 +21,7 @@ export type StateObject<T = unknown> = {
 
 export type Mini = {
   html: typeof html;
-  state: <T>(name: string, value: T) => StateObject<T>;
+  state: <T>(name: string, value: T, global?: boolean) => StateObject<T>;
   cacheAndCursor: CacheAndCursor;
   flatten(
     htmlStringArray: MiniHtmlString[],
@@ -36,10 +37,7 @@ export function html(
     stringLiterals,
     values,
     resolve: (mini: Mini): ResolvedMiniHtmlString => {
-      if (isBackend)
-        throw new Error(
-          "resolve called in backend, resolve() is only available in frontend. use build(), TODO instead",
-        );
+      if (isBackend) return backendResolve(stringLiterals, values, mini);
       return resolve(stringLiterals, values, mini);
     },
   };
@@ -48,8 +46,9 @@ export function html(
 export function makeNewMini(cac: CacheAndCursor): Mini {
   return {
     html,
-    state: (name, value) => {
-      return state(name, value, cac);
+    state: (name, value, global) => {
+      if (isBackend) global = true;
+      return state(name, value, cac, global);
     },
     flatten,
     cacheAndCursor: cac,

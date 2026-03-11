@@ -23,15 +23,17 @@ export function getResolvedMiniHtmlStringThrows(
     );
   return cacheEntry.value;
 }
-
 export function state<T>(
   name: string,
   value: T,
   cacheAndCursor: CacheAndCursor,
+  global?: boolean,
 ): StateObject<T> {
-  let cacheEntry = getCacheEntry(cacheAndCursor);
+  const localCac = { ...cacheAndCursor };
+  if (global) localCac.cursor = "global";
+  let cacheEntry = getCacheEntry(localCac);
   if (!cacheEntry) {
-    cacheAndCursor.cache.set(cacheAndCursor.cursor, {
+    cacheAndCursor.cache.set(localCac.cursor, {
       value: {
         stringLiterals: null,
         values: null,
@@ -40,9 +42,9 @@ export function state<T>(
       },
       dirty: true,
     });
-    cacheEntry = getCacheEntryThrows(cacheAndCursor);
+    cacheEntry = getCacheEntryThrows(localCac);
   }
-  const cacheValue = getResolvedMiniHtmlStringThrows(cacheAndCursor);
+  const cacheValue = getResolvedMiniHtmlStringThrows(localCac);
   if (!cacheValue.state) cacheValue.state = [];
   const stateObjects = cacheValue.state;
 
@@ -73,6 +75,7 @@ export type ResolvedMiniCacheHtmlString = {
   stringLiterals: StringArray | null;
   values: ResolvedMiniCacheValue[] | null;
   slots: string[] | null;
+  //TODO make this a record of name -> value
   state: StateObject[] | null;
 };
 export type ResolvedMiniCacheValue =
