@@ -13,7 +13,7 @@ export function render(
   const cacheEntry = getCacheEntryThrows(cac);
   const htmlsnippet = getResolvedMiniHtmlStringThrows(cac);
   if (!htmlsnippet.stringLiterals || !htmlsnippet.values || !htmlsnippet.slots)
-    throw new Error("should have lits,values & slots once resolved");
+    throw new Error("should have literals,values & slots once resolved");
   const children: Map<string, CacheObject> = new Map();
   let new_html_portion: HTMLElement | null = null;
 
