@@ -8,7 +8,8 @@ import {
   makeNewMini,
   type Mini,
   type MiniValue,
-  type PrimitiveValue,
+  type ResolvedMiniHtmlString,
+  type ResolvedMiniValue,
   type StringArray,
 } from "../mininext";
 import { isInside, render } from "./minirender";
@@ -60,16 +61,6 @@ export function resolveMiniHtmlString(
   };
 }
 
-export type ResolvedMiniHtmlString = {
-  stringLiterals: StringArray;
-  values: ResolvedMiniValue[];
-  slots: string[];
-  render: (
-    target: Element | HTMLElement,
-    cacheAndCursor?: CacheAndCursor,
-  ) => CacheAndCursor;
-};
-export type ResolvedMiniValue = PrimitiveValue | ResolvedMiniHtmlString;
 export function resolveValuesForCache(
   unresolvedValues: MiniValue[],
   cac: CacheAndCursor,

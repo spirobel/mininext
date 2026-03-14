@@ -1,5 +1,5 @@
 import { state, type CacheAndCursor } from "./minicache";
-import { resolve, type ResolvedMiniHtmlString } from "./frontend/miniresolve";
+import { resolve } from "./frontend/miniresolve";
 import { resolve as backendResolve } from "./backend/miniresolve";
 export { renderRoot } from "./frontend/minidom";
 export { createRouter, type Params } from "./frontend/minirouter";
@@ -162,3 +162,14 @@ function createTemplateStringsArray(strings: string[]): TemplateStringsArray {
 }
 
 export type StringArray = string[] | TemplateStringsArray;
+
+export type ResolvedMiniHtmlString = {
+  stringLiterals: StringArray;
+  values: ResolvedMiniValue[];
+  slots: string[];
+  render: (
+    target: Element | HTMLElement,
+    cacheAndCursor?: CacheAndCursor,
+  ) => CacheAndCursor;
+};
+export type ResolvedMiniValue = PrimitiveValue | ResolvedMiniHtmlString;
