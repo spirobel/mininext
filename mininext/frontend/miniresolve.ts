@@ -26,7 +26,7 @@ export function resolveMiniValue(
     // if this happened we need to save the state to the cache
     return component.resolve(mini);
   }
-  if (typeof value === "object" && "resolve" in value)
+  if (value && typeof value === "object" && "resolve" in value)
     return value.resolve(mini);
   return value;
 }

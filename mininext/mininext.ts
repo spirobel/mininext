@@ -5,7 +5,7 @@ export { renderRoot } from "./frontend/minidom";
 export { createRouter, type Params } from "./frontend/minirouter";
 
 export const isBackend = typeof window === "undefined";
-export type PrimitiveValue = string | number;
+export type PrimitiveValue = string | number | null;
 export type MiniHtmlString = {
   stringLiterals: TemplateStringsArray;
   values: MiniValue[];
