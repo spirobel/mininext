@@ -13,7 +13,7 @@ export function getCacheEntryThrows(cacheAndCursor: CacheAndCursor) {
 }
 export function getResolvedMiniHtmlStringThrows(
   cacheAndCursor: CacheAndCursor,
-) {
+): ResolvedMiniCacheHtmlString {
   const cacheEntry = getCacheEntryThrows(cacheAndCursor);
   if (typeof cacheEntry.value !== "object")
     throw new Error(
@@ -21,7 +21,7 @@ export function getResolvedMiniHtmlStringThrows(
         cacheEntry,
       )}`,
     );
-  return cacheEntry.value;
+  return cacheEntry.value!;
 }
 export function state<T>(
   name: string,
