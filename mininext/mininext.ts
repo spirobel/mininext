@@ -161,6 +161,24 @@ function createTemplateStringsArray(strings: string[]): TemplateStringsArray {
   return Object.freeze(stringsArray) as TemplateStringsArray;
 }
 
+export function resolveMiniValue(
+  value: MiniValue,
+  parentMini: Mini,
+  slotId: string,
+): ResolvedMiniValue {
+  // make new mini with slotid as cursor
+  const mini = makeNewMini({ ...parentMini.cacheAndCursor, cursor: slotId });
+
+  if (typeof value === "function") {
+    const component = value(mini);
+    // if this happened we need to save the state to the cache
+    return component.resolve(mini);
+  }
+  if (value && typeof value === "object" && "resolve" in value)
+    return value.resolve(mini);
+  return value;
+}
+
 export type StringArray = string[] | TemplateStringsArray;
 
 export type ResolvedMiniHtmlString = {

@@ -5,7 +5,7 @@ import {
   type ResolvedMiniCacheValue,
 } from "../minicache";
 import {
-  makeNewMini,
+  resolveMiniValue,
   type Mini,
   type MiniValue,
   type ResolvedMiniHtmlString,
@@ -14,23 +14,6 @@ import {
 } from "../mininext";
 import { isInside, render } from "./minirender";
 
-export function resolveMiniValue(
-  value: MiniValue,
-  parentMini: Mini,
-  slotId: string,
-): ResolvedMiniValue {
-  // make new mini with slotid as cursor
-  const mini = makeNewMini({ ...parentMini.cacheAndCursor, cursor: slotId });
-
-  if (typeof value === "function") {
-    const component = value(mini);
-    // if this happened we need to save the state to the cache
-    return component.resolve(mini);
-  }
-  if (value && typeof value === "object" && "resolve" in value)
-    return value.resolve(mini);
-  return value;
-}
 export function resolveMiniHtmlString(
   stringLiterals: StringArray,
   unresolvedValues: MiniValue[],
