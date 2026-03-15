@@ -1,6 +1,12 @@
 import { state, type CacheAndCursor } from "./minicache";
 import { resolve } from "./frontend/miniresolve";
 import { resolve as backendResolve } from "./backend/miniresolve";
+import {
+  build,
+  newBackendMini,
+  renderBackend,
+  type Skeleton,
+} from "./backend/html";
 export { renderRoot } from "./frontend/minidom";
 export { createRouter, type Params } from "./frontend/minirouter";
 
@@ -10,6 +16,8 @@ export type MiniHtmlString = {
   stringLiterals: TemplateStringsArray;
   values: MiniValue[];
   resolve(mini?: Mini): ResolvedMiniHtmlString;
+  build(mini?: Mini, config?: Bun.BuildConfig): Promise<Skeleton>;
+  renderBackend(mini?: Mini): string;
 };
 
 export type MiniComponent = (mini: Mini) => MiniHtmlString;
@@ -27,11 +35,18 @@ export type Mini = {
     htmlStringArray: MiniHtmlString[],
     flattenRootFn?: (htmlstrings: MiniHtmlString) => MiniHtmlString,
   ): MiniHtmlString;
+  fill(...args: MiniValue[]): string;
 };
 
 export function html(
   stringLiterals: TemplateStringsArray,
   ...values: MiniValue[]
+): MiniHtmlString {
+  return constructMiniHtmlString(stringLiterals, values);
+}
+export function constructMiniHtmlString(
+  stringLiterals: TemplateStringsArray,
+  values: MiniValue[],
 ): MiniHtmlString {
   return {
     stringLiterals,
@@ -39,6 +54,14 @@ export function html(
     resolve: (mini: Mini): ResolvedMiniHtmlString => {
       if (isBackend) return backendResolve(stringLiterals, values, mini);
       return resolve(stringLiterals, values, mini);
+    },
+    async build(mini?: Mini, config?: Bun.BuildConfig): Promise<Skeleton> {
+      return await build(stringLiterals, values, mini, config);
+    },
+    renderBackend: (mini?: Mini): string => {
+      if (!mini) mini = newBackendMini();
+      backendResolve(stringLiterals, values, mini);
+      return renderBackend(mini.cacheAndCursor).result;
     },
   };
 }
@@ -52,6 +75,11 @@ export function makeNewMini(cac: CacheAndCursor): Mini {
     },
     flatten,
     cacheAndCursor: cac,
+    fill: (...args) => {
+      throw new Error(
+        "this method can only be used if the mini instance was made from a html skeleton, const skeleton = html`<div></div>`.build(); const mini = skeleton.mini(); const htmlresult = skeleton.fill(...args);",
+      );
+    },
   };
 }
 
@@ -93,7 +121,7 @@ export function flattenValues(miniHtmlString: MiniHtmlString): MiniHtmlString {
          
          (every mini html string needs to have only one root element)`,
       );
-    } else if (typeof value === "object" && "resolve" in value) {
+    } else if (value && typeof value === "object" && "resolve" in value) {
       const priorLiteral = literalsArray[index];
       if (!priorLiteral) throw new Error("no prior literal, ");
       literalsArray[index] = priorLiteral + value.stringLiterals[0];
@@ -109,13 +137,7 @@ export function flattenValues(miniHtmlString: MiniHtmlString): MiniHtmlString {
     }
   }
   const stringLiterals = createTemplateStringsArray(literalsArray);
-  return {
-    stringLiterals,
-    values,
-    resolve: (mini: Mini): ResolvedMiniHtmlString => {
-      return resolve(stringLiterals, values, mini);
-    },
-  };
+  return constructMiniHtmlString(stringLiterals, values);
 }
 function combineMiniHtmlStrings(htmlstrings: MiniHtmlString[]): MiniHtmlString {
   const stringLiterals = combineTemplateStringsArrays(
@@ -123,13 +145,7 @@ function combineMiniHtmlStrings(htmlstrings: MiniHtmlString[]): MiniHtmlString {
   );
   const values = htmlstrings.flatMap((hs) => hs.values);
 
-  return {
-    stringLiterals,
-    values,
-    resolve: (mini: Mini): ResolvedMiniHtmlString => {
-      return resolve(stringLiterals, values, mini);
-    },
-  };
+  return constructMiniHtmlString(stringLiterals, values);
 }
 
 function combineTemplateStringsArrays(tsas: TemplateStringsArray[]) {
