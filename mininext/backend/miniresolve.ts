@@ -53,7 +53,11 @@ export function resolveValuesForCache(
       if (!childId) throw new Error("Could not find slot id for value");
 
       // CASE: primitive
-      if (typeof value === "string" || typeof value === "number") {
+      if (
+        typeof value === "string" ||
+        typeof value === "number" ||
+        value === null
+      ) {
         const cacheEntry = cac.cache.get(childId);
         if (cacheEntry) {
           if (cacheEntry.value === value) return value;
