@@ -33,6 +33,7 @@ export type Skeleton = {
 export async function build(
   stringLiterals: TemplateStringsArray,
   values: MiniValue[],
+  root: string,
   mini?: Mini,
   config?: Bun.BuildConfig,
 ): Promise<Skeleton> {
@@ -43,12 +44,17 @@ export async function build(
   if (!mini) mini = newBackendMini();
   const _resolved_skeleton = backendResolve(stringLiterals, values, mini);
   const _rendered_skeleton = renderBackend(mini.cacheAndCursor);
+
+  const indexpath = root + "/index.html";
   const _build_result = await Bun.build({
-    entrypoints: ["/index.html"],
+    entrypoints: [indexpath],
     files: {
-      "/index.html": _rendered_skeleton.result,
+      [indexpath]: _rendered_skeleton.result,
     },
+    root,
+    ...(config ?? {}),
   });
+
   if (Bun.env.NODE_ENV === "production") {
     if (!_build_result.success) {
       console.error("Build failed:", _build_result.logs);
@@ -160,4 +166,33 @@ export function createStaticRoutes(build_result: Bun.BuildOutput) {
     routes[urlPath] = new Response(output);
   }
   return routes;
+}
+
+export function getCallerDir(): string {
+  const origPrepareStackTrace = Error.prepareStackTrace;
+  Error.prepareStackTrace = (_, stack) => stack; // Return raw CallSite objects
+  const err = new Error();
+  Error.captureStackTrace(err, getCallerDir); // Skip frames up to this function
+  const stack = err.stack as unknown as NodeJS.CallSite[]; // Type it as CallSite array
+  Error.prepareStackTrace = origPrepareStackTrace; // Restore original
+
+  // stack[0] should now be the caller of getCallerDir (inside build)
+  // stack[1] is the external caller of build
+  const callerCallsite = stack[1];
+  if (!callerCallsite) {
+    throw new Error("Unable to determine caller directory");
+  }
+  const callerFile = callerCallsite.getFileName();
+  if (!callerFile) {
+    throw new Error("Caller file name not available");
+  }
+  let lastSlash = callerFile.lastIndexOf("/");
+  let lastBackslash = callerFile.lastIndexOf("\\");
+  let lastSep = Math.max(lastSlash, lastBackslash);
+
+  if (lastSep <= 0) {
+    return ".";
+  }
+
+  return callerFile.slice(0, lastSep);
 }

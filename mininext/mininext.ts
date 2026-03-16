@@ -3,6 +3,7 @@ import { resolve } from "./frontend/miniresolve";
 import { resolve as backendResolve } from "./backend/miniresolve";
 import {
   build,
+  getCallerDir,
   newBackendMini,
   renderBackend,
   type Skeleton,
@@ -16,7 +17,11 @@ export type MiniHtmlString = {
   stringLiterals: TemplateStringsArray;
   values: MiniValue[];
   resolve(mini?: Mini): ResolvedMiniHtmlString;
-  build(mini?: Mini, config?: Bun.BuildConfig): Promise<Skeleton>;
+  build(
+    mini?: Mini,
+    root?: string,
+    config?: Bun.BuildConfig,
+  ): Promise<Skeleton>;
   renderBackend(mini?: Mini): string;
 };
 
@@ -55,8 +60,13 @@ export function constructMiniHtmlString(
       if (isBackend) return backendResolve(stringLiterals, values, mini);
       return resolve(stringLiterals, values, mini);
     },
-    async build(mini?: Mini, config?: Bun.BuildConfig): Promise<Skeleton> {
-      return await build(stringLiterals, values, mini, config);
+    async build(
+      mini?: Mini,
+      root?: string,
+      config?: Bun.BuildConfig,
+    ): Promise<Skeleton> {
+      if (!root) root = getCallerDir();
+      return await build(stringLiterals, values, root, mini, config);
     },
     renderBackend: (mini?: Mini): string => {
       if (!mini) mini = newBackendMini();
