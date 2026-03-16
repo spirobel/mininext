@@ -27,7 +27,7 @@ export type Skeleton = {
     placeholder_ids: string[];
   };
   _resolved_skeleton: ResolvedMiniHtmlString;
-  fill: (...args: MiniValue[]) => string;
+  fill: (...args: MiniValue[]) => Blob;
   mini: () => Mini;
 };
 export async function build(
@@ -101,7 +101,7 @@ export function curryFill(
   rendered_skeleton: string,
   mini?: Mini,
 ) {
-  const fill = (...args: MiniValue[]): string => {
+  const fill = (...args: MiniValue[]): Blob => {
     let localSkeleton = rendered_skeleton;
     const localMini = mini ?? newBackendMini();
     let pointer = 0;
@@ -124,7 +124,7 @@ export function curryFill(
 
       pointer++;
     }
-    return localSkeleton;
+    return new Blob([localSkeleton], { type: "text/html;charset=utf-8" });
   };
   return fill;
 }

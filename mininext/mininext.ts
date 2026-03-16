@@ -40,7 +40,7 @@ export type Mini = {
     htmlStringArray: MiniHtmlString[],
     flattenRootFn?: (htmlstrings: MiniHtmlString) => MiniHtmlString,
   ): MiniHtmlString;
-  fill(...args: MiniValue[]): string;
+  fill(...args: MiniValue[]): Blob;
 };
 
 export function html(
