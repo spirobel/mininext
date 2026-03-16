@@ -20,6 +20,7 @@ export function newBackendMini() {
   });
 }
 export type Skeleton = {
+  static_routes: BunStaticRoutes;
   _build_result: Bun.BuildOutput;
   _rendered_skeleton: {
     result: string;
@@ -54,7 +55,15 @@ export async function build(
       process.exit(1);
     }
   }
-  const rendered_built_result = await _build_result.outputs[0].text();
+  let htmlArtifact = _build_result.outputs.find(
+    (output) => output.path === "./index.html",
+  );
+
+  if (!htmlArtifact) {
+    throw new Error("No index.html found in build outputs");
+  }
+
+  const rendered_built_result = await htmlArtifact.text();
 
   const getMini = () => {
     const newMini = newBackendMini();
@@ -70,7 +79,9 @@ export async function build(
     _rendered_skeleton.placeholder_ids,
     rendered_built_result,
   );
+  const static_routes = createStaticRoutes(_build_result);
   return {
+    static_routes,
     _build_result,
     _rendered_skeleton,
     _resolved_skeleton,
@@ -136,4 +147,18 @@ export function renderBackend(cac: CacheAndCursor) {
   }
 
   return { result, placeholder_ids };
+}
+export type BunStaticRoutes = Record<string, Response>;
+export function createStaticRoutes(build_result: Bun.BuildOutput) {
+  const routes: BunStaticRoutes = {};
+  for (const output of build_result.outputs) {
+    if (output.path === "./index.html") continue;
+
+    let urlPath = output.path;
+    if (urlPath.startsWith("./")) {
+      urlPath = "/" + urlPath.slice(2);
+    }
+    routes[urlPath] = new Response(output);
+  }
+  return routes;
 }
