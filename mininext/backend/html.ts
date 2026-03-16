@@ -125,25 +125,24 @@ export function renderBackend(cac: CacheAndCursor) {
   const placeholder_ids: string[] = [];
   let index = 0;
   for (const literal of htmlsnippet.stringLiterals) {
-    if (index < htmlsnippet.values.length) {
-      const value = htmlsnippet.values[index];
-      if (value && typeof value === "object" && "childId" in value) {
-        const partRender = renderBackend({
-          cache: cac.cache,
-          cursor: value.childId,
-        });
-        result += literal + partRender.result;
-      } else {
-        let primValue = value;
-        if (primValue === null) {
-          const pl_id = crypto.randomUUID();
-          primValue = pl_id;
-          placeholder_ids.push(pl_id);
-        }
-        result += literal + Bun.escapeHTML(primValue);
+    const value =
+      index < htmlsnippet.values.length ? htmlsnippet.values[index] : "";
+    if (value && typeof value === "object" && "childId" in value) {
+      const partRender = renderBackend({
+        cache: cac.cache,
+        cursor: value.childId,
+      });
+      result += literal + partRender.result;
+    } else {
+      let primValue = value;
+      if (primValue === null) {
+        const pl_id = crypto.randomUUID();
+        primValue = pl_id;
+        placeholder_ids.push(pl_id);
       }
-      index++;
+      result += literal + Bun.escapeHTML(primValue);
     }
+    index++;
   }
 
   return { result, placeholder_ids };
