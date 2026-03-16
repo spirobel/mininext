@@ -102,24 +102,29 @@ export function curryFill(
   mini?: Mini,
 ) {
   const fill = (...args: MiniValue[]): string => {
-    if (!mini) mini = newBackendMini();
+    let localSkeleton = rendered_skeleton;
+    const localMini = mini ?? newBackendMini();
     let pointer = 0;
     for (const placeholderID of placeholder_ids) {
       const filler = args[pointer];
-      if (typeof filler === undefined) continue;
-
-      const slotId = `${pointer}-filled`;
-      resolveMiniValue(filler, mini, slotId);
-      const newCac = { ...mini.cacheAndCursor, cursor: slotId };
-      const renderedValue = renderBackend(newCac);
-      rendered_skeleton = rendered_skeleton.replace(
-        placeholderID,
-        renderedValue.result,
-      );
+      if (typeof filler === undefined || filler === null) {
+        localSkeleton = localSkeleton.replace(placeholderID, "");
+      } else if (typeof filler === "string" || typeof filler === "number") {
+        localSkeleton = localSkeleton.replace(placeholderID, String(filler));
+      } else {
+        const slotId = `${pointer}-filled`;
+        resolveMiniValue(filler, localMini, slotId);
+        const newCac = { ...localMini.cacheAndCursor, cursor: slotId };
+        const renderedValue = renderBackend(newCac);
+        localSkeleton = localSkeleton.replace(
+          placeholderID,
+          renderedValue.result,
+        );
+      }
 
       pointer++;
     }
-    return rendered_skeleton;
+    return localSkeleton;
   };
   return fill;
 }
