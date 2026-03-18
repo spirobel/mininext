@@ -90,7 +90,36 @@ export async function buildSkeleton({
     throw new Error("No index.html found in build outputs");
   }
 
-  const rendered_built_result = await htmlArtifact.text();
+  let rendered_built_result = await htmlArtifact.text();
+  const static_routes = createStaticRoutes(_build_result);
+
+  if (Bun.env.NODE_ENV !== "production") {
+    const buildId = crypto.randomUUID();
+    const hmrUrl = `/hmr-${buildId}`;
+    static_routes[hmrUrl] = new Response(JSON.stringify({ buildId: buildId }), {
+      headers: { "Content-Type": "application/json; charset=utf-8" },
+    });
+    const hmrReloadScript = `<script>
+          setInterval(reload, 100); 
+          async function reload(){
+            try {
+              const res = await fetch("${hmrUrl}");
+              if (!res.ok) return location.reload();
+              const { buildId } = await res.json();
+              if (buildId !== "${buildId}") location.reload();
+            } catch {
+              location.reload();
+            }
+          }
+    </script>`;
+    const rewriter = new HTMLRewriter().on("body", {
+      element(head) {
+        head.append(hmrReloadScript, { html: true });
+      },
+    });
+
+    rendered_built_result = rewriter.transform(rendered_built_result);
+  }
 
   const getMini = () => {
     const newMini = newBackendMini();
@@ -106,7 +135,6 @@ export async function buildSkeleton({
     _rendered_skeleton.placeholder_ids,
     rendered_built_result,
   );
-  const static_routes = createStaticRoutes(_build_result);
   const result: Skeleton = {
     static_routes,
     _build_result,
