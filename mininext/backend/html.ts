@@ -64,7 +64,7 @@ export async function buildSkeleton({
   if (!mini) mini = newBackendMini();
   const _resolved_skeleton = backendResolve(stringLiterals, values, mini);
   const _rendered_skeleton = renderBackend(mini.cacheAndCursor);
-
+  const minify = Bun.env.NODE_ENV === "production";
   const indexpath = root + "/index.html";
   const _build_result = await Bun.build({
     entrypoints: [indexpath],
@@ -73,6 +73,7 @@ export async function buildSkeleton({
     },
     plugins: [logPathsPlugin],
     root,
+    minify,
     ...(config ?? {}),
   });
 
@@ -227,7 +228,9 @@ export function createStaticRoutes(build_result: Bun.BuildOutput) {
     if (urlPath.startsWith("./")) {
       urlPath = "/" + urlPath.slice(2);
     }
-    routes[urlPath] = new Response(output);
+    routes[urlPath] = new Response(output, {
+      headers: { "Content-Type": output.type },
+    });
   }
   return routes;
 }
