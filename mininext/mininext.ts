@@ -66,7 +66,7 @@ export function constructMiniHtmlString(
       config?: Bun.BuildConfig,
     ): Promise<Skeleton> {
       if (!root) root = getCallerDir();
-      return await build(stringLiterals, values, root, mini, config);
+      return await build({ stringLiterals, values, root, mini, config });
     },
     renderBackend: (mini?: Mini): string => {
       if (!mini) mini = newBackendMini();

@@ -1,3 +1,4 @@
+import type { PluginBuilder } from "bun";
 import {
   getResolvedMiniHtmlStringThrows,
   type CacheAndCursor,
@@ -27,16 +28,35 @@ export type Skeleton = {
     placeholder_ids: string[];
   };
   _resolved_skeleton: ResolvedMiniHtmlString;
+  import_paths: string[];
   fill: (...args: MiniValue[]) => Blob;
   mini: () => Mini;
 };
-export async function build(
-  stringLiterals: TemplateStringsArray,
-  values: MiniValue[],
-  root: string,
-  mini?: Mini,
-  config?: Bun.BuildConfig,
-): Promise<Skeleton> {
+export type SkeletonBuildParams = {
+  stringLiterals: TemplateStringsArray;
+  values: MiniValue[];
+  root: string;
+  mini?: Mini;
+  config?: Bun.BuildConfig;
+};
+export async function buildSkeleton({
+  stringLiterals,
+  values,
+  root,
+  mini,
+  config,
+}: SkeletonBuildParams): Promise<Skeleton> {
+  const watchedPaths: string[] = [];
+  const logPathsPlugin = {
+    name: "log-paths",
+    setup(build: PluginBuilder) {
+      build.onLoad({ filter: /.*/ }, (args) => {
+        watchedPaths.push(args.path);
+        return undefined;
+      });
+    },
+  };
+
   if (!isBackend)
     throw new Error(`build() can only be called on backend, not frontend.
             Use renderRoot() in to mount components in the frontend`);
@@ -51,6 +71,7 @@ export async function build(
     files: {
       [indexpath]: _rendered_skeleton.result,
     },
+    plugins: [logPathsPlugin],
     root,
     ...(config ?? {}),
   });
@@ -86,14 +107,24 @@ export async function build(
     rendered_built_result,
   );
   const static_routes = createStaticRoutes(_build_result);
-  return {
+  const result: Skeleton = {
     static_routes,
     _build_result,
     _rendered_skeleton,
     _resolved_skeleton,
     mini: getMini,
     fill,
+    import_paths: watchedPaths,
   };
+  return result;
+}
+
+export async function build(params: SkeletonBuildParams): Promise<Skeleton> {
+  const result: Skeleton = await buildSkeleton(params);
+  if (Bun.env.NODE_ENV !== "production") {
+    hmr(result, params);
+  }
+  return result;
 }
 
 export function curryFill(
@@ -200,4 +231,60 @@ export function getCallerDir(): string {
   }
 
   return callerFile.slice(0, lastSep);
+}
+
+export async function hmr(skel: Skeleton, params: SkeletonBuildParams) {
+  const escapedPaths = skel.import_paths
+    .slice(1)
+    .map((p) => JSON.stringify(p))
+    .join(", ");
+  const watcherCode = `
+  import fs from "node:fs"; 
+  const files=[${escapedPaths}];
+  files.forEach(f=>fs.watchFile(f,{interval:100},()=>{
+              console.log("file changed:",f);
+             process.exit(0);
+            })
+   );`;
+
+  const proc = Bun.spawn(["bun", "run", "-"], {
+    stdin: "pipe",
+    stdout: "pipe",
+    stderr: "pipe",
+  });
+
+  proc.stdin.write(watcherCode);
+  proc.stdin.end();
+
+  const output = await proc.stdout.text();
+  console.log("(hmr process)", output);
+  if (output.includes("file changed:")) {
+    const newSkel = await buildSkeleton(params);
+    Object.assign(skel, {
+      static_routes: newSkel.static_routes,
+      _build_result: newSkel._build_result,
+      _rendered_skeleton: newSkel._rendered_skeleton,
+      _resolved_skeleton: newSkel._resolved_skeleton,
+      fill: newSkel.fill,
+      mini: newSkel.mini,
+    });
+    hmr(skel, params);
+    if (globalThis.minireload) globalThis.minireload();
+  }
+}
+declare global {
+  interface ReadableStream<R = any> {
+    /** consumes the stream and returns the full content as string */
+    text(): Promise<string>;
+
+    /** consumes the stream and parses it as JSON */
+    json(): Promise<unknown>;
+
+    /** consumes the stream as ArrayBuffer */
+    arrayBuffer(): Promise<ArrayBuffer>;
+
+    /** consumes the stream as Uint8Array */
+    bytes(): Promise<Uint8Array>;
+  }
+  var minireload: () => void;
 }
