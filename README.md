@@ -17,13 +17,7 @@ github:
 quickstart:
 
 ```bash
-bun create spirobel/gucci yournewproject
-```
-
-barebones quickstart:
-
-```bash
-bun create spirobel/aldi yournewproject
+bun create spirobel/counter yournewproject
 ```
 
 if you don't have bun installed, run first:
@@ -41,27 +35,19 @@ bun install
 dev:
 
 ```bash
-bun run dev
+bun run --hot counter.ts
 ```
 
 production:
 
 ```bash
-bun run start
-```
-
-build:
-
-```bash
-bun run build
+NODE_ENV=production bun run counter.ts
 ```
 
 ## Tutorial
 
-If you understand these 3 basic concepts you can build your own website with mininext:
+If you understand these 3 basic concepts you can build your own webapp with mininext:
 
 1. html + css
 2. templating
 3. you can use data inside of your html templates
-
-Tutorial video: [intro to mininext](https://www.youtube.com/watch?v=rz4awKntpzE)
