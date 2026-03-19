@@ -1,298 +1,219 @@
-import { url, Mini, has, type HtmlHandler } from "./url";
+import { state, type CacheAndCursor } from "./minicache";
+import { resolve } from "./frontend/miniresolve";
+import { resolve as backendResolve } from "./backend/miniresolve";
 import {
-  isError,
-  HtmlString,
-  BasedHtml,
-  head,
-  commonHead,
-  cssReset,
-  basedHtml as html,
-} from "./html";
-import { $, type BunPlugin, type Server, type WebSocketHandler } from "bun";
-import { watch } from "fs/promises";
-import * as path from "path";
-function projectRoot() {
-  return global.PROJECT_ROOT || import.meta.dir + "/../../../../";
-}
-declare global {
-  var PROJECT_ROOT: string | undefined;
-}
-async function build(backendPath: string = "backend/backend.ts") {
-  if (Bun.argv[2] === "frontend") {
-    const newFrontend = await buildFrontend(Bun.argv[3]);
-    process.stdout.write(JSON.stringify(newFrontend));
-    return 0;
-  }
-  await buildBackend(backendPath);
-  if (Bun.argv[2] === "dev") {
-    await devServer();
-  }
-}
+  build,
+  getCallerDir,
+  newBackendMini,
+  renderBackend,
+  type Skeleton,
+} from "./backend/html";
+export { renderRoot } from "./frontend/minidom";
+export { createRouter, type Params } from "./frontend/minirouter";
 
-const streamPlugin: BunPlugin = {
-  name: "node stream in the frontend",
-  setup(build) {
-    build.onResolve({ filter: /^stream$/ }, (args) => {
-      const path_to_stream_lib = path.resolve(
-        projectRoot(),
-        "node_modules/stream-browserify/index.js"
-      );
-      if (path_to_stream_lib)
-        return {
-          path: path_to_stream_lib,
-        };
-    });
-  },
+export const isBackend = typeof window === "undefined";
+export type PrimitiveValue = string | number | null;
+export type MiniHtmlString = {
+  stringLiterals: TemplateStringsArray;
+  values: MiniValue[];
+  resolve(mini?: Mini): ResolvedMiniHtmlString;
+  build(
+    mini?: Mini,
+    root?: string,
+    config?: Bun.BuildConfig,
+  ): Promise<Skeleton>;
+  renderBackend(mini?: Mini): string;
 };
-const bufferPlugin: BunPlugin = {
-  name: "node buffer in the frontend",
-  setup(build) {
-    build.onResolve({ filter: /^buffer$/ }, (args) => {
-      const path_to_buffer_lib = path.resolve(
-        projectRoot(),
-        "node_modules/buffer/index.js"
-      );
-      if (path_to_buffer_lib)
-        return {
-          path: path_to_buffer_lib,
-        };
-    });
-  },
-};
-const cryptoPlugin: BunPlugin = {
-  name: "node crypto in the frontend",
-  setup(build) {
-    build.onResolve({ filter: /^crypto$/ }, (args) => {
-      const path_to_crypto_lib = path.resolve(
-        projectRoot(),
-        "node_modules/crypto-browserify/index.js"
-      );
-      if (path_to_crypto_lib)
-        return {
-          path: path_to_crypto_lib,
-        };
-    });
-  },
-};
-const nodeHttpsPlugin: BunPlugin = {
-  name: "node https in the frontend",
-  setup(build) {
-    build.onResolve({ filter: /^https$/ }, (args) => {
-      const path_to_node_https_lib = path.resolve(
-        projectRoot(),
-        "node_modules/https-browserify/index.js"
-      );
-      if (path_to_node_https_lib)
-        return {
-          path: path_to_node_https_lib,
-        };
-    });
-  },
-};
-async function buildBackend(backendPath: string = "backend/backend.ts") {
-  global.bundledFrontends = {};
-  global.bundledSVGs = {};
-  const i = await import(path.resolve(projectRoot(), backendPath));
 
-  for (const frontend of url.getFrontends()) {
-    const firstPlaceToLook = path.resolve(
-      path.dirname(frontend.callerPath),
-      `frontend/${frontend.frontendFilePath}`
-    );
-    const secondPlaceToLook = path.resolve(
-      projectRoot(),
-      `frontend/${frontend.frontendFilePath}`
-    );
-    const frontEndPath = (await Bun.file(firstPlaceToLook).exists())
-      ? firstPlaceToLook
-      : secondPlaceToLook;
-    try {
-      const frontendResult =
-        await $`bun run build.ts frontend ${frontEndPath}`.json();
+export type MiniComponent = (mini: Mini) => MiniHtmlString;
+export type MiniValue = PrimitiveValue | MiniComponent | MiniHtmlString;
+export type StateObject<T = unknown> = {
+  value: T;
+  name: string;
+};
 
-      bundledFrontends[`/${frontendResult.url}`] = {
-        frontendContent: frontendResult.script,
-        frontendFilePath: frontend.frontendFilePath,
-        position: frontend.position,
-      };
-    } catch (error) {
-      if (
-        error &&
-        typeof error === "object" &&
-        "exitCode" in error &&
-        "stdout" in error &&
-        "stderr" in error &&
-        error.stdout instanceof Buffer &&
-        error.stderr instanceof Buffer
-      ) {
-        console.error(`Failed with exit code: ${error.exitCode}`);
-        console.error("Standard Output:", error.stdout.toString());
-        console.error("Standard Error:", error.stderr.toString());
-      }
-      console.log(await $`bun run build.ts frontend ${frontEndPath}`.text());
-    }
-  }
-  for (const svg of url.getSvgs()) {
-    const firstPlaceToLook = path.resolve(
-      path.dirname(svg.callerPath),
-      `svgs/${svg.svgFilePath}`
-    );
-    const secondPlaceToLook = path.resolve(projectRoot(), `${svg.svgFilePath}`);
-    const svgResolvedFilePath = (await Bun.file(firstPlaceToLook).exists())
-      ? firstPlaceToLook
-      : secondPlaceToLook;
-    const parsedSvgPath = path.parse(svgResolvedFilePath);
-    const svgContent = Bun.file(svgResolvedFilePath);
-    const svgHash = Bun.hash(await svgContent.arrayBuffer());
-    const svgUrl = `/${parsedSvgPath.name}-${svgHash}.svg`;
-    bundledSVGs[svgUrl] = {
-      svgContent: await svgContent.text(),
-      svgFilePath: svg.svgFilePath,
-      position: svg.position,
-      options: svg.options,
-    };
-  }
-  const res = await Bun.build({
-    entrypoints: [path.resolve(projectRoot(), backendPath)],
-    outdir: path.resolve(projectRoot(), "dist"),
-    naming: "backend.js",
-    minify: Bun.argv[2] === "dev" ? false : true, //production
-    target: "bun",
-    define: {
-      bundledFrontends: JSON.stringify(bundledFrontends),
-      bundledSVGs: JSON.stringify(bundledSVGs),
+export type Mini = {
+  html: typeof html;
+  state: <T>(name: string, value: T, global?: boolean) => StateObject<T>;
+  cacheAndCursor: CacheAndCursor;
+  flatten(
+    htmlStringArray: MiniHtmlString[],
+    flattenRootFn?: (htmlstrings: MiniHtmlString) => MiniHtmlString,
+  ): MiniHtmlString;
+  fill(...args: MiniValue[]): Blob;
+};
+
+export function html(
+  stringLiterals: TemplateStringsArray,
+  ...values: MiniValue[]
+): MiniHtmlString {
+  return constructMiniHtmlString(stringLiterals, values);
+}
+export function constructMiniHtmlString(
+  stringLiterals: TemplateStringsArray,
+  values: MiniValue[],
+): MiniHtmlString {
+  return {
+    stringLiterals,
+    values,
+    resolve: (mini: Mini): ResolvedMiniHtmlString => {
+      if (isBackend) return backendResolve(stringLiterals, values, mini);
+      return resolve(stringLiterals, values, mini);
     },
-  });
-}
-
-async function buildFrontend(file: string) {
-  const result = await Bun.build({
-    entrypoints: [file],
-    outdir: path.resolve(projectRoot(), "dist"),
-    naming: "[name]-[hash].[ext]",
-    minify: Bun.argv[2] === "dev" ? false : true, //production
-    target: "browser",
-    plugins: [bufferPlugin, streamPlugin, cryptoPlugin, nodeHttpsPlugin],
-  });
-  if (!result?.outputs[0]?.path) console.log(result);
-  const url = path.basename(result.outputs[0].path);
-  //results.push({ file, p });
-  return { url, script: await result.outputs[0].text() };
-}
-
-async function devServer() {
-  //start the reloader and tell browser to refresh once
-  await buildBackend();
-  let refreshed_once = false;
-  const server = Bun.serve({
-    port: 3001,
-    fetch(request) {
-      const success: Boolean = server.upgrade(request);
-      return success
-        ? new Response("Reloader works!")
-        : new Response("Reloader WebSocket upgrade error", { status: 400 });
+    async build(
+      mini?: Mini,
+      root?: string,
+      config?: Bun.BuildConfig,
+    ): Promise<Skeleton> {
+      if (!root) root = getCallerDir();
+      return await build({ stringLiterals, values, root, mini, config });
     },
-    websocket: {
-      open(ws) {
-        ws.subscribe("reloader");
-        if (!refreshed_once) {
-          ws.send("Reload!");
-          refreshed_once = true;
-        }
-      },
-      message(ws, message) {}, // a message is received
+    renderBackend: (mini?: Mini): string => {
+      if (!mini) mini = newBackendMini();
+      backendResolve(stringLiterals, values, mini);
+      return renderBackend(mini.cacheAndCursor).result;
     },
-  });
-  async function watchAndBuild(dir: string) {
-    try {
-      //start the file watcher that will rebuild frontend on save
-      const watcher = watch(path.resolve(projectRoot(), dir), {
-        recursive: true,
-      });
-      for await (const event of watcher) {
-        buildBackend().then(() => {
-          // tell browser to refresh again because we saw a change
-          server.publish("reloader", "Reload!");
-        });
-      }
-    } catch (e) {
-      console.log(
-        `mini-next dev server has trouble watching "./${dir}", does the directory exist?`
-      );
-    }
-  }
-  watchAndBuild("frontend");
-  watchAndBuild("backend");
-}
-const standardDevReloader = html`
-  <script>
-    function reloader() {
-      let socket = null;
-
-      function connectWebSocket() {
-        if (socket) {
-          return;
-        }
-        socket = new WebSocket("ws://localhost:3001/reload");
-
-        socket.addEventListener("message", (event) => {
-          window.location.reload();
-        });
-
-        socket.addEventListener("close", (event) => {
-          // Reestablish the connection after 1 second
-          socket = null;
-        });
-
-        socket.addEventListener("error", (event) => {
-          socket = null;
-        });
-      }
-      connectWebSocket(); // connect to reloader, if it does not work:
-      setInterval(connectWebSocket, 1000); // retry every 1 second
-    }
-    reloader();
-  </script>
-`;
-async function makeEntrypoint() {
-  let module;
-  const backendImportPath = projectRoot() + "/dist/backend.js";
-  try {
-    // @ts-ignore
-    module = await import(backendImportPath);
-  } catch (error) {
-    await build();
-    // @ts-ignore
-    module = await import(backendImportPath);
-  }
-  return module.default() as {
-    fetch: (req: Request, server: Server) => Promise<Response>;
-    websocket: WebSocketHandler;
   };
 }
-export function getCallerFilePath(): string {
-  // const stack = new Error().stack?.split("\n");
-  // //console.log(stack);
-  // if (!stack) return "";
-  // return stack[2].slice(
-  //   stack[2].lastIndexOf("(") + 1,
-  //   stack[2].lastIndexOf(")") + 3
-  // );
-  return __dirname;
+
+export function makeNewMini(cac: CacheAndCursor): Mini {
+  return {
+    html,
+    state: (name, value, global) => {
+      if (isBackend) global = true;
+      return state(name, value, cac, global);
+    },
+    flatten,
+    cacheAndCursor: cac,
+    fill: (...args) => {
+      throw new Error(
+        "this method can only be used if the mini instance was made from a html skeleton, const skeleton = html`<div></div>`.build(); const mini = skeleton.mini(); const htmlresult = skeleton.fill(...args);",
+      );
+    },
+  };
 }
-export {
-  has,
-  html,
-  url,
-  head,
-  build,
-  makeEntrypoint,
-  isError,
-  BasedHtml,
-  HtmlString,
-  type HtmlHandler,
-  Mini,
-  standardDevReloader,
-  commonHead,
-  cssReset,
+
+export function standardFlattenRoot(
+  htmlstrings: MiniHtmlString,
+): MiniHtmlString {
+  return html`<div>${htmlstrings}</div>`;
+}
+
+export function flatten(
+  htmlStringArray: MiniHtmlString[],
+  flattenRootFn = standardFlattenRoot,
+): MiniHtmlString {
+  const flattenedArray = combineMiniHtmlStrings(htmlStringArray);
+  return flattenValues(flattenRootFn(flattenedArray));
+}
+export function flattenValues(miniHtmlString: MiniHtmlString): MiniHtmlString {
+  const literalsArray: string[] = [];
+  const values: MiniValue[] = [];
+  let mergeWithPrior = false;
+
+  let index = 0;
+  for (const literal of miniHtmlString.stringLiterals) {
+    if (mergeWithPrior) {
+      mergeWithPrior = false;
+      literalsArray[index] += literal;
+    } else {
+      literalsArray.push(literal);
+    }
+    const value = miniHtmlString.values[index];
+    if (typeof value === "function") {
+      throw new Error(
+        `resolve components before passing them into the root element when flattening,
+         with const miniHtmlString = component(mini);
+         
+         optimally just have the root element's only value be the htmlstringsarray
+         you want to flatten. This is not the place for complex logic,
+         it is just to wrap your array in an <ul>, <ol> or <div> element.
+         
+         (every mini html string needs to have only one root element)`,
+      );
+    } else if (value && typeof value === "object" && "resolve" in value) {
+      const priorLiteral = literalsArray[index];
+      if (!priorLiteral) throw new Error("no prior literal, ");
+      literalsArray[index] = priorLiteral + value.stringLiterals[0];
+      literalsArray.push(...value.stringLiterals.slice(1));
+      mergeWithPrior = true;
+
+      values.push(...value.values);
+      index += value.stringLiterals.slice(1).length;
+    } else {
+      if (typeof value === "string" || typeof value === "number")
+        values.push(value);
+      index++;
+    }
+  }
+  const stringLiterals = createTemplateStringsArray(literalsArray);
+  return constructMiniHtmlString(stringLiterals, values);
+}
+function combineMiniHtmlStrings(htmlstrings: MiniHtmlString[]): MiniHtmlString {
+  const stringLiterals = combineTemplateStringsArrays(
+    htmlstrings.map((hs) => hs.stringLiterals),
+  );
+  const values = htmlstrings.flatMap((hs) => hs.values);
+
+  return constructMiniHtmlString(stringLiterals, values);
+}
+
+function combineTemplateStringsArrays(tsas: TemplateStringsArray[]) {
+  const stringlits: string[] = [];
+  for (const litarray of tsas) {
+    const prior = stringlits.at(-1);
+    const first = litarray[0];
+    if (prior && first) {
+      stringlits[stringlits.length - 1] += first;
+      stringlits.push(...litarray.slice(1));
+    } else {
+      stringlits.push(...litarray);
+    }
+  }
+  return createTemplateStringsArray(stringlits);
+}
+function createTemplateStringsArray(strings: string[]): TemplateStringsArray {
+  const stringsArray = [...strings];
+
+  const frozenRaw = Object.freeze([...strings]);
+
+  Object.defineProperty(stringsArray, "raw", {
+    value: frozenRaw,
+    writable: false,
+    enumerable: false,
+    configurable: false,
+  });
+
+  return Object.freeze(stringsArray) as TemplateStringsArray;
+}
+
+export function resolveMiniValue(
+  value: MiniValue,
+  parentMini: Mini,
+  slotId: string,
+): ResolvedMiniValue {
+  // make new mini with slotid as cursor
+  const mini = makeNewMini({ ...parentMini.cacheAndCursor, cursor: slotId });
+
+  if (typeof value === "function") {
+    const component = value(mini);
+    // if this happened we need to save the state to the cache
+    return component.resolve(mini);
+  }
+  if (value && typeof value === "object" && "resolve" in value)
+    return value.resolve(mini);
+  return value;
+}
+
+export type StringArray = string[] | TemplateStringsArray;
+
+export type ResolvedMiniHtmlString = {
+  stringLiterals: StringArray;
+  values: ResolvedMiniValue[];
+  slots: string[];
+  render: (
+    target: Element | HTMLElement,
+    cacheAndCursor?: CacheAndCursor,
+  ) => CacheAndCursor;
 };
+export type ResolvedMiniValue = PrimitiveValue | ResolvedMiniHtmlString;
