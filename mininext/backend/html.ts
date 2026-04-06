@@ -101,7 +101,7 @@ export async function buildSkeleton({
       headers: { "Content-Type": "application/json; charset=utf-8" },
     });
     const hmrReloadScript = `<script>
-          setInterval(reload, 100); 
+          setInterval(reload, 1000); 
           async function reload(){
             try {
               const res = await fetch("${hmrUrl}");
@@ -272,7 +272,7 @@ export async function hmr(skel: Skeleton, params: SkeletonBuildParams) {
   const watcherCode = `
   import fs from "node:fs"; 
   const files=[${escapedPaths}];
-  files.forEach(f=>fs.watchFile(f,{interval:100},()=>{
+  files.forEach(f=>fs.watchFile(f,{interval:1000},()=>{
               console.log("file changed:",f);
              process.exit(0);
             })
