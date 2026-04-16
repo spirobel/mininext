@@ -583,22 +583,6 @@ globalThis.minireload = () => {
 }
 ```
 
-### TypeScript Configuration
-
-```json
-{
-  "compilerOptions": {
-    "target": "ESNext",
-    "module": "ESNext",
-    "moduleResolution": "bundler",
-    "types": ["bun"],
-    "strict": true,
-    "skipLibCheck": true,
-    "forceConsistentCasingInFileNames": true
-  }
-}
-```
-
 ## Best Practices
 
 1. **Separation of Concerns**: Keep backend routes, frontend components, and styles in separate directories
