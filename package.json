@@ -11,7 +11,7 @@
     "clean": "rm -rf ./dist"
   },
   "files": ["dist"],
-  "version": "0.8.3",
+  "version": "0.8.4",
   "devDependencies": {
     "@types/bun": "^1.3.9"
   },
