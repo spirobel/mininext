@@ -5,7 +5,7 @@
 Mininext is a web framework that brings the immediate mode GUI paradigm to the web.
 It automatically throttles rendering when the tab isn't visible, via the browser requestAnimationFrame throttling.
 
-read the [architecture document](./architecture.md) for more details
+read the [architecture document](./docs/architecture.md) for more details
 
 ## Getting Started
 
@@ -76,6 +76,8 @@ globalThis.minireload = () => {
 
 console.log("Counter server running at http://localhost:3000");
 ```
+
+for a frontend counter example consult the [counter demo repo](https://github.com/spirobel/counter)
 
 ## install commands
 
