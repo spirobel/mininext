@@ -59,8 +59,8 @@ export function render(
     const value = child.value;
     if (typeof value == "object") {
       const childtarget = child.el;
-      if (!childtarget)
-        throw new Error(`if not dirty should have el: ${childId}`);
+      if (!childtarget) continue;
+      //throw new Error(`if not dirty should have el: ${childId}`);
       render(childtarget, { ...cac, cursor: childId });
     } else {
       if (!child.dirty) continue;
