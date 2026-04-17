@@ -42,6 +42,19 @@ Hydration means embedding data in the initial HTML response.
 Server side:
 
 ```typescript
+import { html } from "@spirobel/mininext";
+
+const skeleton = await html`<!DOCTYPE html>
+  <html>
+    <head>
+      <title>Mininext App</title>
+    </head>
+    <body data-hydrate="${null}">
+      <div id="root"></div>
+      <script type="module" src="./frontend.ts"></script>
+    </body>
+  </html>`.build();
+
 const data = { count: 42 };
 const hydrate = btoa(JSON.stringify(data));
 const html = skeleton.fill(hydrate);
@@ -54,7 +67,12 @@ const b64 = document.body.dataset.hydrate;
 const data = JSON.parse(atob(b64));
 ```
 
-This drastically reduces render time compared to naive client-side rendering. Achieves same or better performance than React Server Components / SSR. Drastically reduces attack surface + complexity.
+This drastically reduces render time compared to naive client-side rendering. Achieves same or better performance than React Server Components / SSR, while minimizing attack surface & complexity.
+
+Sidenote: instead of embedding JSON directly it should be base64 encoded.
+Study this [svelte ssr cve](https://www.sentinelone.com/vulnerability-database/cve-2026-27902/) to understand why `JSON.stringify()` output directly embedded in HTML is a bad idea.
+
+Mininext only allows HTML, synchronous functions that return HTML, and primitive data types to be embedded in HTML. It will prevent you from making this mistake.
 
 ## Template System
 
