@@ -170,7 +170,10 @@ export function curryFill(
       if (typeof filler === undefined || filler === null) {
         localSkeleton = localSkeleton.replace(placeholderID, "");
       } else if (typeof filler === "string" || typeof filler === "number") {
-        localSkeleton = localSkeleton.replace(placeholderID, String(filler));
+        localSkeleton = localSkeleton.replace(
+          placeholderID,
+          Bun.escapeHTML(String(filler)),
+        );
       } else {
         const slotId = `${pointer}-filled`;
         resolveMiniValue(filler, localMini, slotId);
