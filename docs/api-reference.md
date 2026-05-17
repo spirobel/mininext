@@ -4,7 +4,7 @@ This document provides a complete API reference for Mininext. For conceptual und
 
 ## Core Functions
 
-### `html` — Template Literal
+### `html` template literal
 
 Creates a `MiniHtmlString` from a template literal with embedded expressions.
 
@@ -44,7 +44,7 @@ export function html(
 
 ---
 
-### `renderRoot` — Start Rendering
+### `renderRoot` start rendering
 
 Starts the immediate mode render loop in the browser.
 
@@ -76,7 +76,7 @@ renderRoot({
 
 ---
 
-### `createRouter` — Client-Side Router
+### `createRouter` client side router
 
 Creates a hash-based router for client-side navigation.
 
@@ -119,7 +119,7 @@ export function createRouter(routes: Record<string, MiniComponent>): Router {
 
 ## Backend Functions
 
-### `.build()` — Build Skeleton
+### `.build()` build skeleton
 
 Compiles an HTML template into a `Skeleton` object with static routes and fill methods.
 
@@ -168,7 +168,7 @@ async build(
 
 ---
 
-### `.fill()` — Fill Placeholders
+### `.fill()` fill placeholders
 
 Replaces `${null}` placeholders in a skeleton with dynamic content.
 
@@ -206,7 +206,7 @@ function curryFill(mini: Mini, htmlString: ResolvedMiniHtmlString): Blob {
 
 ---
 
-### `.mini()` — Create Mini Instance
+### `.mini()` create mini instance
 
 Creates a `Mini` instance with `.fill()` bound to it, enabling state sharing without props drilling.
 
@@ -254,7 +254,7 @@ type Skeleton = {
 
 ## State Management
 
-### `mini.state()` — Attach/Access State
+### `mini.state()` attach / access state
 
 Attaches or retrieves data from the cache.
 
@@ -298,7 +298,7 @@ export function state<T>(
 
 ---
 
-### `mini.html` — Template in Components
+### `mini.html` template in components
 
 Template literal available inside components (same as top-level `html`).
 
@@ -327,7 +327,7 @@ function Component(mini: Mini) {
 
 ## Utility Functions
 
-### `mini.flatten()` — Flatten Array of HTML Strings
+### `mini.flatten()` flatten array of HTML strings
 
 Combines an array of `MiniHtmlString` into a single one with a root element.
 

@@ -3,7 +3,7 @@
 Mininext is a web framework that brings the immediate mode GUI paradigm to the web.
 It automatically throttles rendering when the tab isn't visible, via the browser requestAnimationFrame throttling.
 
-## Install
+## install
 
 ```bash
 mkdir my-app
@@ -12,7 +12,7 @@ bun init
 bun add @spirobel/mininext
 ```
 
-## Project Structure
+## project structure
 
 ```
 my-app/
@@ -21,7 +21,7 @@ my-app/
 ├── package.json
 ```
 
-## Server
+## server
 
 Create `server.ts`:
 
@@ -55,7 +55,7 @@ async function homeRoute(req: Request) {
 Bun.serve({ port: 3000, routes: makeRoutes() });
 ```
 
-## Frontend
+## frontend
 
 Create `frontend.ts`:
 
@@ -89,7 +89,7 @@ bun run --hot server.ts
 
 Visit `http://localhost:3000`.
 
-### Create Reusable Components
+### create Reusable Components
 
 ```typescript
 // components/card.ts
