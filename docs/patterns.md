@@ -1,48 +1,36 @@
 # Mininext Web Framework Patterns
 
-This document outlines useful patterns and conventions extracted from the monero-payment-links codebase using the mininext web framework.
+This document collects useful patterns extracted from the monero-payment-links codebase using the mininext web framework.
 
-## Table of Contents
-
-1. [Project Structure](#project-structure)
-2. [Server Configuration](#server-configuration)
-3. [Routing Patterns](#routing-patterns)
-4. [HTML Templating](#html-templating)
-5. [Frontend Architecture](#frontend-architecture)
-6. [Styling Patterns](#styling-patterns)
-7. [Data Management](#data-management)
-8. [Authentication Patterns](#authentication-patterns)
-9. [Component Patterns](#component-patterns)
-10. [Development Workflow](#development-workflow)
-
-## Project Structure
+## project structure
 
 ```
 project/
-├── server.ts              # Main server entry point
-├── db.ts                  # Database layer with SQL queries
-├── package.json           # Dependencies: @spirobel/mininext
-├── tsconfig.json          # TypeScript configuration
-├── dashboard/             # Admin dashboard module
-│   ├── dashboard.ts       # Dashboard skeleton and route
-│   ├── login.ts           # Login page and authentication
-│   ├── adminSecret.ts     # Admin secret management
-│   ├── frontend_main.ts   # Frontend entry point
+├── server.ts          # main server entry point
+├── db.ts              # sqlite db setup & SQL queries
+├── ckechout.ts        # user facing checkout page
+├── package.json       # dependencies
+├── tsconfig.json          # typescript configuration
+├── dashboard/             # Admin dashboard
+│   ├── dashboard.ts       # Dashboard skeleton & route
+│   ├── login.ts           # login page & auth
+│   ├── adminSecret.ts     # admin secret management
+│   ├── frontend_main.ts   # frontend entry point
 │   ├── backend/           # API endpoints
 │   │   ├── payment_links.ts
 │   │   └── wallets.ts
-│   ├── frontend/          # Frontend components
+│   ├── frontend/          # frontend components
 │   │   ├── dashboard_router.ts
 │   │   ├── sidebar.ts
 │   │   ├── payment_links/
 │   │   └── wallets/
 │   └── styles/
-│       └── common.ts      # Global styles
+│       └── common.ts      # global styles
 ```
 
-## Server Configuration
+## server configuration
 
-### Basic Server Setup
+### bun server setup
 
 ```typescript
 // server.ts
@@ -64,10 +52,10 @@ globalThis.minireload = () => {
 console.log("Server running at http://localhost:3003");
 ```
 
-### Route Definition Pattern
+### route definitions
 
 ```typescript
-// server.ts - Route aggregation pattern
+// server.ts aggregate routes in one place
 export function makeRoutes() {
   const routes = {
     ...dashboardSkeleton.static_routes,
@@ -91,21 +79,21 @@ export function makeRoutes() {
 }
 ```
 
-## Routing Patterns
-
-### Backend API Routes
+### backend API routes
 
 ```typescript
 // dashboard/backend/payment_links.ts
 export async function editPaymentLinkRoute(req: Request) {
+  // do business logic and db ops first
+  // anything async at the outside of the onion
+
   const adminRedirect = await checkAdminAndRedirect(req);
   if (adminRedirect) return adminRedirect;
 
   try {
     const body = await req.json();
 
-    // Validation pattern
-    const errors: any[] = [];
+    //form / json input validation
     if (!body.amount || body.amount.trim() === "") {
       errors.push({ path: ["amount"], message: "Amount is required" });
     }
@@ -117,15 +105,17 @@ export async function editPaymentLinkRoute(req: Request) {
       });
     }
 
-    // Business logic
     const paymentLinkId = body.paymentLinkId || crypto.randomUUID();
 
-    // Database operation
+    // database operation
     await upsertPaymentLink({
       paymentLinkId: paymentLinkId,
       // ... other fields
     });
-
+    // if this wasnt a json route mininext fill op would happen here at the end as a sync call
+    // while the whole route handler is async
+    // (the html / view definition is sync only)
+    // to summarize: route handler "onion" is async at the outside, and the html / view definition is sync only shortly before the return with the http response
     return Response.json({ success: true, paymentLinkId: paymentLinkId });
   } catch (error) {
     console.error("Error saving payment link:", error);
@@ -141,12 +131,17 @@ export async function editPaymentLinkRoute(req: Request) {
 }
 ```
 
-### Frontend Routing with Hash-based Navigation
+### frontend routing with mininext built in hash router
 
 ```typescript
 // dashboard/frontend/dashboard_router.ts
 import { createRouter, html, type Params } from "@spirobel/mininext";
-
+// those look like bun routes but they are not
+// they are behind a hash so: bun backend
+// dashboard route: /dashboard
+// combined: /dashboard#/payment-links
+//           /dashboard#/payment-links/:id
+//           /dashboard#/wallets
 const routes = {
   "/wallets": dashboardFrontendRoute,
   "/payment-links": paymentLinksRoute,
@@ -171,7 +166,7 @@ if (!window.location.hash || window.location.hash === "#") {
 
 ## HTML Templating
 
-### Skeleton Pattern with Hydration
+### skeleton pattern with hydration
 
 ```typescript
 // dashboard/dashboard.ts
@@ -194,17 +189,20 @@ export async function dashBoardRoute(req: Request) {
   const adminRedirect = await checkAdminAndRedirect(req);
   if (adminRedirect) return adminRedirect;
 
-  // Fetch data
+  // fetch data
   const scan_settings = await readScanSettings();
+  //we just put all data into the frontend
+  // sqlite is fast and the request to the backend only happens once at the start
+  // this can be optimized if there is more data
   const payment_links = await getAllActivePaymentLinks();
 
-  // Hydrate with base64 encoded data
+  // hydrate with base64 encoded data
   const hydrate = btoa(JSON.stringify({ scan_settings, payment_links }));
   return new Response(dashboardSkeleton.fill(hydrate));
 }
 ```
 
-### Dynamic Content Injection
+### dynamic content injection
 
 ```typescript
 // dashboard/login.ts
@@ -212,21 +210,22 @@ export async function adminLoginGet(req: Request) {
   const url = new URL(req.url);
   const hasError = url.searchParams.get("error") === "1";
 
-  // Conditional content based on query params
+  // conditional content based on query params
   const errorHtml = hasError
     ? html`<div id="error">
         <p class="error">Incorrect password. Try again.</p>
       </div>`
     : html`<div id="error"></div>`;
-
+  // this is a typical multi page app pattern
+  // feels like php
   const filled = loginSkeleton.fill(errorHtml);
   return new Response(filled);
 }
 ```
 
-## Frontend Architecture
+## frontend
 
-### Root Component Rendering
+### root component rendering
 
 ```typescript
 // dashboard/frontend_main.ts
@@ -241,14 +240,18 @@ renderRoot({
   container,
 });
 
-// Hydrated data access pattern
+// hydrated data access pattern
 export function getHydratedData(): DashboardData {
   const b64 = document.body.dataset.hydrate;
   if (!b64) throw new Error("No DashboardData to hydrate");
   return JSON.parse(atob(b64)) as DashboardData;
 }
 
-// Global window augmentation
+// just attach the hydrated data to global scope
+// you can also put other data / state here
+// because of the raf rerender imgui pattern
+// we dont need to obsess over state as much
+// as in react.
 declare global {
   interface Window {
     dashboardData: DashboardData;
@@ -261,10 +264,10 @@ declare global {
 window.dashboardData = getHydratedData();
 ```
 
-### Component Composition Pattern
+### component composition
 
 ```typescript
-// Example component structure
+// example component structure
 export function paymentLinksList() {
   const paymentLinks = window.dashboardData.payment_links || [];
 
@@ -277,6 +280,12 @@ export function paymentLinksList() {
       </div>
     </a>`;
   };
+  // you have to flatten arrays of minihtmlstrings explicitly.
+  // makes the framework simpler
+  // and gives you a chance to be careful about
+  // the type of element to put your list elements into
+
+  // <ul> <li> </li> </ul> typestuff ....
 
   return html`<div>
     ${() => {
@@ -294,14 +303,17 @@ export function paymentLinksList() {
 }
 ```
 
-## Styling Patterns
+## styling
 
 ### CSS-in-JS with Template Literals
 
 ```typescript
 // dashboard/styles/common.ts
 import { html } from "@spirobel/mininext";
-
+// just use css in the components you make
+// components are mainly to group html structure and styles together
+// its on you to not have collisions
+//in class names. If you have good names for your entitites they will barely collide.
 export const mainStyles = html`<style>
   :root {
     --primary: #5b21b6;
@@ -333,7 +345,7 @@ export const mainStyles = html`<style>
 </style>`;
 ```
 
-### Component-Specific Styles
+### component specific Styles
 
 ```typescript
 // dashboard/frontend/sidebar.ts
@@ -379,9 +391,9 @@ export const sidebarStyles = html`<style>
 </style>`;
 ```
 
-## Data Management
+## data
 
-### Database Layer Pattern
+### use SQLITE
 
 ```typescript
 // db.ts
@@ -393,7 +405,7 @@ const sql = new SQL({
   create: true,
 });
 
-// Table creation with proper types
+// table creation with proper types, if not exists will make the table when starting the app for the first time, or after a new db schema version is deployed. The restart to the new version will update the schema and run the code in one atomic action.
 await sql`
   CREATE TABLE IF NOT EXISTS admin_session_cookies (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -402,14 +414,14 @@ await sql`
   );
 `.execute();
 
-// Type definitions
+// type definitions
 export type AdminSessionCookieRow = {
   id: number;
   cookie: string;
   timestamp: string;
 };
 
-// Query functions with proper typing
+// query functions with proper typing
 export function insertAdminSessionCookie(
   cookie: string,
 ): SQL.Query<InsertIdRow[]> {
@@ -421,27 +433,27 @@ export function insertAdminSessionCookie(
 }
 ```
 
-### Data Hydration Pattern
+### data hydration (embedding data in the first response)
 
 ```typescript
-// Type definition for hydrated data
+// type definition for hydrated data
 export type DashboardData = {
   scan_settings?: ScanSettingsOpened;
   payment_links: CombinedPaymentLinkRow[];
 };
 
-// Server-side data preparation
+// server-side data preparation
 const hydrate = btoa(JSON.stringify({ scan_settings, payment_links }));
 return new Response(dashboardSkeleton.fill(hydrate));
 
-// Client-side data access
+// client-side data access
 const scanSettings = window.dashboardData.scan_settings;
 const walletList = scanSettings?.wallets || [];
 ```
 
-## Authentication Patterns
+## authentication patterns
 
-### Session Cookie Management
+### session cookie handling
 
 ```typescript
 // dashboard/login.ts
@@ -449,18 +461,19 @@ export async function adminLoginPost(req: Request) {
   const formData = await req.formData();
   const password = formData.get("password") as string;
 
-  // Password validation
+  // password validation
   if (!password || password !== (await getAdminSecret())) {
     const headers = new Headers();
     headers.set("Location", "/login?error=1");
     return new Response(null, { status: 303, headers });
   }
 
-  // Generate and store session token
+  // generate and store session token
   const token = crypto.randomUUID();
   await insertAdminSessionCookie(token);
 
-  // Set cookie and redirect
+  // set cookie and redirect
+  // store session token in httpOnly cookie
   const headers = new Headers();
   headers.set("Location", "/dashboard");
   headers.set("Set-Cookie", `admin_session=${token}; HttpOnly; Path=/`);
@@ -468,7 +481,7 @@ export async function adminLoginPost(req: Request) {
 }
 ```
 
-### Authentication Middleware
+### authentication middleware
 
 ```typescript
 // dashboard/login.ts
@@ -478,7 +491,7 @@ export async function checkAdminAndRedirect(req: Request) {
     ?.split(";")
     .find((c) => c.trim().startsWith("admin_session="))
     ?.split("=")[1];
-
+  // if no session cookie go to login page
   if (!sessionCookie) {
     const url = new URL(req.url);
     if (url.pathname !== "/login") {
@@ -486,10 +499,10 @@ export async function checkAdminAndRedirect(req: Request) {
       headers.set("Location", "/login");
       return new Response(null, { status: 303, headers });
     }
-    throw new Error("Not admin, but on /login route");
+    throw new Error("Not admin, but on /dashboard route");
   }
 
-  // Verify session exists in database
+  // verify session exists in database
   const session = await getSessionCookieByValue(sessionCookie);
   if (!session) {
     const headers = new Headers();
@@ -497,13 +510,13 @@ export async function checkAdminAndRedirect(req: Request) {
     return new Response(null, { status: 303, headers });
   }
 
-  return null; // User is authenticated
+  return null; // user is authenticated
 }
 ```
 
-## Component Patterns
+## component patterns
 
-### Reusable Form Components
+### reusable form components
 
 ```typescript
 // Example form component pattern
@@ -533,13 +546,16 @@ export function createPaymentLinkForm() {
 }
 ```
 
-### List Component with Dynamic Rendering
+### list component with business logic
 
 ```typescript
-// Pattern for rendering lists with conditional logic
+// pattern for rendering lists with conditional logic
 export function paymentLinksList() {
   const paymentLinks = window.dashboardData.payment_links || [];
-
+  // this is useful to show info / guidance to the user when the list has not been filled with something yet, that the user can create
+  // sometimes multiple entities depend on each other so the guidance is difference
+  // for example it does not make sense to guide the user to create a payment link when he has not added a wallet yet
+  // so the guidance on the payment link page can depend on the state of the wallet list
   return html`<div>
     ${() => {
       if (paymentLinks.length === 0) {
@@ -561,7 +577,7 @@ export function paymentLinksList() {
 }
 ```
 
-## Development Workflow
+## development Workflow
 
 ### Hot Reload Setup
 
@@ -585,14 +601,13 @@ globalThis.minireload = () => {
 
 ## Best Practices
 
-1. **Separation of Concerns**: Keep backend routes, frontend components, and styles in separate directories
-2. **Type Safety**: Define TypeScript interfaces for all data structures
+1. **Separation of Concerns**: keep backend routes, frontend components, and styles in separate directories, but also separated by feature. only do file type separation when it makes sense. feature grouping is more important.
+2. **Type Safety**: Define TypeScript interfaces for all data structures, but dont mistake ts for actually checking the types. it just helps the IDE / gives hints. at runtime none of these type hints exist.
 3. **Error Handling**: Use consistent error response patterns in API routes
-4. **Responsive Design**: Implement mobile-first CSS with media queries
-5. **Security**: Always validate user input and use HttpOnly cookies for sessions
-6. **Performance**: Minimize data sent to client through selective hydration
-7. **Code Organization**: Group related components in feature-based directories
-8. **Consistent Naming**: Use camelCase for functions/variables, PascalCase for types/components
+4. **Responsive Design**: Implement mobile-first CSS with media queries 5. **Security**: Always validate user input and use HttpOnly cookies for sessions
+5. **Performance**: Minimize data sent to client through selective hydration
+6. **Code Organization**: Group related components in feature-based directories
+7. **Consistent Naming**: Use camelCase for functions/variables, PascalCase for types/components
 
 ## Common Patterns Summary
 
