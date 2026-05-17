@@ -625,7 +625,7 @@ globalThis.minireload = () => {
 ## Getting Started Template
 
 ```typescript
-// Minimal mininext project structure
+// minimal mininext project
 import { html } from "@spirobel/mininext";
 
 const skeleton = await html`<!DOCTYPE html>
