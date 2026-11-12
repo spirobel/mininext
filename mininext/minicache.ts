@@ -1,4 +1,10 @@
-import type { PrimitiveValue, StateObject, StringArray } from "./mininext";
+import type {
+  MiniHandler,
+  PrimitiveValue,
+  StateObject,
+  StringArray,
+} from "./core";
+import type { SlotDom } from "./frontend/minirender";
 
 export function getCacheEntry(cacheAndCursor: CacheAndCursor) {
   return cacheAndCursor.cache.get(cacheAndCursor.cursor);
@@ -33,16 +39,13 @@ export function state<T>(
   if (global) localCac.cursor = "global";
   let cacheEntry = getCacheEntry(localCac);
   if (!cacheEntry) {
-    cacheAndCursor.cache.set(localCac.cursor, {
-      value: {
-        stringLiterals: null,
-        values: null,
-        slots: null,
-        state: [],
-      },
-      dirty: true,
-    });
-    cacheEntry = getCacheEntryThrows(localCac);
+    cacheEntry = { value: null, dirty: true };
+    cacheAndCursor.cache.set(localCac.cursor, cacheEntry);
+  }
+  // no entry yet, or the slot held text before: make it a template entry
+  if (!cacheEntry.value || typeof cacheEntry.value !== "object") {
+    cacheEntry.value = { stringLiterals: null, values: null, slots: null, state: [] };
+    cacheEntry.dirty = true;
   }
   const cacheValue = getResolvedMiniHtmlStringThrows(localCac);
   if (!cacheValue.state) cacheValue.state = [];
@@ -60,7 +63,8 @@ export function state<T>(
 export type CacheValue = PrimitiveValue | ResolvedMiniCacheHtmlString;
 
 export type CacheObject = {
-  el?: HTMLElement;
+  dom?: SlotDom; // frontend: the nodes this slot owns
+  rebuilds?: number; // frontend: rebuilds in a row (twitch check)
   value: CacheValue;
   dirty: boolean;
 };
@@ -80,5 +84,8 @@ export type ResolvedMiniCacheHtmlString = {
 };
 export type ResolvedMiniCacheValue =
   | PrimitiveValue
+  | boolean
+  | undefined
+  | MiniHandler
   | ResolvedMiniChildHtmlString;
 export type ResolvedMiniChildHtmlString = { childId: string };
