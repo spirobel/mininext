@@ -108,8 +108,8 @@ Run the server with `bun --hot index.ts`. Nothing else to set up.
 - frontend files: bun's own dev server bundles them and does hot module reload.
   a code change is swapped in without a page reload, and `renderRoot` keeps the state of the root. you write no hmr code: in dev, `build()` gives each local `<script type="module">` a small entry file that accepts hot updates.
 - backend files: `bun --hot` runs the server again and swaps the routes. pages that use a changed skeleton reload.
-- start bun from your project folder. bun only watches files inside the folder it was started in.
-- in dev `build()` writes `.mininext-<n>.html` and `.mininext-<n>-<k>.ts` files next to your skeleton. add `.mininext-*` to `.gitignore`.
+- start bun from your project folder. the dev files go to `.mininext/` in the folder bun starts in.
+- `.mininext/<pid>/` holds what bun's dev server bundles, because it needs real files: one `<file>-<n>.html` for each page, named after the file that calls `build()`, and one small `.ts` entry for each module script. the folder ignores itself in git and is safe to delete.
 
 ## Static Site
 
