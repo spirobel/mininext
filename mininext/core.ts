@@ -19,7 +19,8 @@ export type MiniHtmlString = {
   renderBackend(mini?: Mini): string;
 };
 
-export type MiniComponent = (mini: Mini) => MiniHtmlString;
+// in content a function is a component. it returns html or any other value
+export type MiniComponent = (mini: Mini) => MiniValue;
 // inside a tag a function is an event handler: onclick=${fn}
 export type MiniHandler = (event: any) => unknown;
 export type MiniValue =
@@ -39,10 +40,6 @@ export type Mini = {
   html: typeof html;
   state: <T>(name: string, value: T, global?: boolean) => StateObject<T>;
   cacheAndCursor: CacheAndCursor;
-  flatten(
-    htmlStringArray: MiniHtmlString[],
-    flattenRootFn?: (htmlstrings: MiniHtmlString) => MiniHtmlString,
-  ): MiniHtmlString;
   fill(...args: MiniValue[]): Blob;
 };
 
@@ -135,7 +132,6 @@ export function makeNewMini(cac: CacheAndCursor): Mini {
       if (isBackend) global = true;
       return state(name, value, cac, global);
     },
-    flatten,
     cacheAndCursor: cac,
     fill: (...args) => {
       throw new Error(
@@ -143,20 +139,6 @@ export function makeNewMini(cac: CacheAndCursor): Mini {
       );
     },
   };
-}
-
-export function standardFlattenRoot(
-  htmlstrings: MiniHtmlString,
-): MiniHtmlString {
-  return html`<div>${htmlstrings}</div>`;
-}
-
-// arrays are values now. flatten only stays for old code.
-export function flatten(
-  htmlStringArray: MiniHtmlString[],
-  flattenRootFn = standardFlattenRoot,
-): MiniHtmlString {
-  return flattenRootFn(html`${htmlStringArray}`);
 }
 
 // an array becomes a template with one slot per item.
@@ -220,10 +202,11 @@ export function resolveMiniValue(
   const mini = makeNewMini({ ...parentMini.cacheAndCursor, cursor: slotId });
   if (Array.isArray(value)) value = list(value);
   if (typeof value === "function") {
-    // in content a function is a component (handlers never get here)
-    const component = (value as MiniComponent)(mini);
-    // if this happened we need to save the state to the cache
-    return component.resolve(mini);
+    // in content a function is a component (handlers never get here).
+    // a plain result gets a template around it: the slot keeps its state,
+    // and the result follows the same rules as any value
+    const result = (value as MiniComponent)(mini);
+    return (isMiniHtml(result) ? result : html`${result}`).resolve(mini);
   }
   if (isMiniHtml(value)) return value.resolve(mini);
   if (value && typeof value === "object")
