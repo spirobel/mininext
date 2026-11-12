@@ -171,12 +171,12 @@ async function devBundle(root: string, html: string) {
       );
     },
   };
-  // the html we fill: bun bundles the local scripts and styles, the loader adds them
+  // the html we fill: bun bundles the local scripts, styles and icons, the loader adds them
   return {
     static_routes,
     _build_result: undefined,
     html: new HTMLRewriter()
-      .on("script[src], link[rel=stylesheet]", {
+      .on("script[src], link[rel=stylesheet], link[rel~=icon]", {
         element: (el) => {
           if (local(el.getAttribute("src") ?? el.getAttribute("href"))) el.remove();
         },

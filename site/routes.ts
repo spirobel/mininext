@@ -10,6 +10,7 @@ const skeleton = await html`<!doctype html>
       <meta charset="utf-8" />
       <meta name="viewport" content="width=device-width, initial-scale=1" />
       <title>${null}</title>
+      <link rel="icon" type="image/svg+xml" href="./favicon.svg" />
       <link rel="stylesheet" href="./style.css" />
       <script type="module" src="./frontend.ts"></script>
     </head>
@@ -26,6 +27,12 @@ export function makeRoutes() {
     ...skeleton.static_routes,
     "/": () => page(`mininext ${version}`, landing()),
     "/docs": () => page("mininext docs", docsIndex()),
+    // images of the docs, from docs/images/ (markdown links them as ./images/x.png)
+    "/docs/images/:file": (req: Bun.BunRequest<"/docs/images/:file">) => {
+      const file = req.params.file;
+      if (!/^[\w-]+\.(png|svg|jpg|webp)$/.test(file)) return new Response("not found", { status: 404 });
+      return new Response(Bun.file(`${import.meta.dir}/../docs/images/${file}`));
+    },
     "/docs/:name": (req: Bun.BunRequest<"/docs/:name">) => {
       const doc = docs.find((d) => d.name === req.params.name);
       if (!doc) return new Response("not found", { status: 404 });

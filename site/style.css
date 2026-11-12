@@ -193,6 +193,11 @@ footer {
   text-align: center;
   color: #555;
 }
+/* images in the docs never get wider than the page */
+.prose img {
+  max-width: 100%;
+  height: auto;
+}
 @media (max-width: 700px) {
   .side {
     grid-template-columns: 1fr;
