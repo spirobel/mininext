@@ -1,446 +1,249 @@
 # Mininext API Reference
 
-This document provides a complete API reference for Mininext. For conceptual understanding, see [Architecture](./architecture.md) and [Getting Started](./getting-started.md).
+For the ideas behind the API, see [Architecture](./architecture.md) and [Getting Started](./getting-started.md).
 
-## Core Functions
+## Entry points
 
-### `html` template literal
+| Import | Contains | Use it in |
+| --- | --- | --- |
+| `@spirobel/mininext` | everything: `html`, `build()`, `fill()`, `crawl()` and the browser parts | server code |
+| `@spirobel/mininext/browser` | `html`, `renderRoot`, `createRouter`, types | frontend code |
 
-Creates a `MiniHtmlString` from a template literal with embedded expressions.
+Bundlers that know the `"browser"` export condition (Bun does) pick `browser` automatically, so a frontend file can import from `@spirobel/mininext` too. No server code goes into a browser bundle.
 
-**File:** [`mininext/mininext.ts`](../mininext/mininext.ts)
+---
+
+## `html` template literal
+
+**File:** [`mininext/core.ts`](../mininext/core.ts)
 
 ```typescript
-export function html(
-  stringLiterals: TemplateStringsArray,
-  ...values: MiniValue[]
-): MiniHtmlString;
+function html(stringLiterals: TemplateStringsArray, ...values: MiniValue[]): MiniHtmlString;
 ```
 
-**Usage:**
+Only the literal parts are html. Every `${value}` is data:
+
+| Value | Between tags | In an attribute |
+| --- | --- | --- |
+| `string`, `number` | text (escaped, never markup) | the attribute value (escaped, quoted) |
+| `null`, `undefined`, `false` | nothing | no attribute |
+| `true` | nothing | boolean attribute, like `disabled` |
+| `html\`...\`` | a nested template | refused |
+| `(mini) => value` | a component, runs every render. it returns `html` or any value in this table | refused |
+| `(event) => ...` | refused | handler, only in `on*` attributes: `onclick=${() => go(id)}` |
+| array | a list, one slot per item | refused |
+| plain object | refused | refused |
+
+The full rules (url checks, `srcdoc`, values in `<style>`) are in [Architecture: Values](./architecture.md#values).
 
 ```typescript
-const name = "World";
-const greeting = html`<h1>Hello, ${name}!</h1>`;
-```
-
-**Details:**
-
-- Expressions are HTML-escaped
-- Functions in templates run every render (immediate mode)
-- Returns a `MiniHtmlString` with `.resolve()`, `.build()`, and `.renderBackend()` methods
-
-**Source:**
-
-```typescript
-// mininext/mininext.ts
-export function html(
-  stringLiterals: TemplateStringsArray,
-  ...values: MiniValue[]
-): MiniHtmlString {
-  return constructMiniHtmlString(stringLiterals, values);
-}
+const greeting = html`<h1 class="${cls}">Hello, ${name}!</h1>`;
 ```
 
 ---
 
-### `renderRoot` start rendering
-
-Starts the immediate mode render loop in the browser.
+## `renderRoot` start rendering
 
 **File:** [`mininext/frontend/minidom.ts`](../mininext/frontend/minidom.ts)
 
 ```typescript
-export function renderRoot(options: {
-  component: () => MiniHtmlString;
+function renderRoot(options: {
+  component: (mini: Mini) => MiniHtmlString;
   container: HTMLElement;
-});
+  cac?: CacheAndCursor; // your own cache, if you want to read it
+}): void;
 ```
-
-**Usage:**
 
 ```typescript
-const container = document.getElementById("root");
+let count = 0;
 renderRoot({
-  component: () => html`<div>Hello</div>`,
-  container,
+  container: document.getElementById("root")!,
+  component: (mini) => mini.html`<button onclick=${() => count++}>${count}</button>`,
 });
 ```
 
-**Details:**
-
-- Starts a `requestAnimationFrame` loop
-- Re-renders the component every frame
-- Browser throttles automatically when tab is not visible
-- Only updates DOM if HTML changed (diffing at string level)
+- Runs `component` once per `requestAnimationFrame`. A hidden tab gets about one frame per second.
+- The first frame parses each template once and keeps references to its nodes.
+- After that, it writes only values that changed: `Text.nodeValue`, `setAttribute`, live properties (`value`, `checked`, `selected`) and handler properties. A frame with no change writes nothing to the DOM.
+- A template that changes into a different template is built again. In development, a slot that is built again 10 frames in a row throws an error, because it loses focus and state each frame.
+- A second `renderRoot` call on the same container (hot reload) swaps the component and keeps the state.
 
 ---
 
-### `createRouter` client side router
-
-Creates a hash-based router for client-side navigation.
+## `createRouter` hash router
 
 **File:** [`mininext/frontend/minirouter.ts`](../mininext/frontend/minirouter.ts)
 
 ```typescript
-export function createRouter(routes: Record<string, MiniComponent>): Router;
+function createRouter(routes: Record<string, (params, mini: Mini) => MiniHtmlString>): {
+  component: (mini: Mini) => MiniHtmlString;
+  navigate(path: string, params?): void;
+  link(path: string, params?): string; // "#/users/42"
+  getCurrentPath(): string;
+};
 ```
-
-**Usage:**
 
 ```typescript
 const router = createRouter({
   "/": () => html`<h1>Home</h1>`,
-  "/users/:id": (mini) => html`<h1>User ${mini.state("id")}</h1>`,
+  "/users/:id": (params) => html`<h1>User ${params.id}</h1>`,
+  "/files/*": (params) => html`<p>${params["*"]}</p>`,
 });
+renderRoot({ container, component: router.component });
+html`<a href="${router.link("/users/:id", { id: "42" })}">user 42</a>`;
 ```
 
-**Details:**
-
-- Listens to `hashchange` events
-- Matches URL hash against route patterns
-- Extracts parameters from `:param` segments
-- Sets `router.component` to matched route's output
-
-**Source:**
-
-```typescript
-// mininext/frontend/minirouter.ts
-export function createRouter(routes: Record<string, MiniComponent>): Router {
-  const router = {
-    component: () => html`<div>404</div>`,
-    params: {} as Params,
-  };
-  // ... route matching logic
-}
-```
+Static segments match before `:params`, and routes that end in `/*` match last, whatever the order of the keys. Params are typed from the route string, also in inline handlers. Params are percent decoded, and `link()` / `navigate()` encode them. A `?query` after the path is ignored. An unknown hash renders nothing and warns one time.
 
 ---
 
-## Backend Functions
-
-### `.build()` build skeleton
-
-Compiles an HTML template into a `Skeleton` object with static routes and fill methods.
+## `.build()` build a skeleton (server)
 
 **File:** [`mininext/backend/html.ts`](../mininext/backend/html.ts)
 
 ```typescript
-export type MiniHtmlString = {
-  build(
-    mini?: Mini,
-    root?: string,
-    config?: Bun.BuildConfig,
-  ): Promise<Skeleton>;
-};
+html`...`.build(mini?: Mini, root?: string, config?: Bun.BuildConfig): Promise<Skeleton>;
 ```
 
-**Usage:**
-
 ```typescript
-const skeleton = await html`<!DOCTYPE html>
+const skeleton = await html`<!doctype html>
   <html>
-    <body>
-      <div id="root">${null}</div>
-    </body>
+    <head><script type="module" src="./frontend.ts"></script></head>
+    <body>${null}</body>
   </html>`.build();
 ```
 
-**Details:**
-
-- `${null}` creates placeholders for dynamic content
-- Runs `Bun.build()` to bundle frontend entry point
-- Returns a `Skeleton` with `.fill()`, `.mini()`, and `static_routes`
-
-**Source:**
-
-```typescript
-// mininext/mininext.ts
-async build(
-  mini?: Mini,
-  root?: string,
-  config?: Bun.BuildConfig,
-): Promise<Skeleton> {
-  if (!root) root = getCallerDir();
-  return await build({ stringLiterals, values, root, mini, config });
-}
-```
+- `root` is the folder that relative `src` and `href` start from. It defaults to the folder of the file that calls `build()`.
+- Each `${null}` becomes a numbered placeholder (`__mini_null_0__`, ...). The same skeleton gives the same html on every build.
+- `NODE_ENV=production`: `Bun.build()` bundles and minifies the scripts and styles. `static_routes` serves the files. A page without scripts gets no empty script chunk.
+- Development (`bun --hot`): the page goes through Bun's own html bundler, so frontend edits hot swap and keep state. A server edit reloads the page.
 
 ---
 
-### `.fill()` fill placeholders
-
-Replaces `${null}` placeholders in a skeleton with dynamic content.
-
-**File:** [`mininext/backend/html.ts`](../mininext/backend/html.ts)
+## `skeleton.fill()` fill the placeholders
 
 ```typescript
-type Skeleton = {
-  fill: (...args: MiniValue[]) => Blob;
-};
+skeleton.fill(...values: MiniValue[]): Blob;
 ```
-
-**Usage:**
 
 ```typescript
-// Simple fill
-return new Response(
-  skeleton.fill(html`<div id="count">${globalCounter}</div>`),
-);
+"/": () => new Response(skeleton.fill(html`<p>count ${count}</p>`)),
 ```
 
-**Details:**
-
-- Each `${null}` in the skeleton gets replaced with corresponding argument
-- Uses string replacement (UUIDs generated at build time)
-- Returns a `Blob` that can be used directly in `Response`
-
-**Source:**
-
-```typescript
-// mininext/backend/html.ts
-function curryFill(mini: Mini, htmlString: ResolvedMiniHtmlString): Blob {
-  // ... string replacement logic
-}
-```
+- The values go into the `${null}` placeholders in order.
+- A string or a number is escaped. A template or a component is rendered on the server.
+- A placeholder inside an attribute, like `href="${null}"`, takes only a string or a number, with the same checks as a template value.
+- The result is a `Blob` with type `text/html;charset=utf-8`.
 
 ---
 
-### `.mini()` create mini instance
-
-Creates a `Mini` instance with `.fill()` bound to it, enabling state sharing without props drilling.
-
-**File:** [`mininext/backend/html.ts`](../mininext/backend/html.ts)
+## `skeleton.mini()` request state
 
 ```typescript
-type Skeleton = {
-  mini: () => Mini;
-};
+skeleton.mini(): Mini; // its fill() is bound to the skeleton
 ```
 
-**Usage:**
-
 ```typescript
-function fetch(req: Request) {
+function handler(req: Request) {
   const mini = skeleton.mini();
-  mini.state("request", req);
-  return new Response(
-    mini.fill((mini: Mini) => {
-      const req = mini.state("request", null);
-      return mini.html`<h1>Hello</h1>`;
-    }),
-  );
+  mini.state("req", req);
+  return new Response(mini.fill(page));
+}
+function page(mini: Mini) {
+  const req = mini.state<Request | null>("req", null).value;
+  return mini.html`<p>you asked for ${new URL(req!.url).pathname}</p>`;
 }
 ```
 
-**Details:**
-
-- Returns a `Mini` with `.fill()` bound to the skeleton
-- `mini.state()` attaches data to the cache
-- Any component can access the data without props
-
-**Source:**
-
-```typescript
-// mininext/backend/html.ts
-type Skeleton = {
-  mini: () => Mini;
-  fill: (...args: MiniValue[]) => Blob;
-  static_routes: BunStaticRoutes;
-};
-```
+Every component in that `fill()` can read the state. You do not pass it down through props.
 
 ---
 
-## State Management
-
-### `mini.state()` attach / access state
-
-Attaches or retrieves data from the cache.
+## `mini.state()` state
 
 **File:** [`mininext/minicache.ts`](../mininext/minicache.ts)
 
 ```typescript
-export type Mini = {
-  state: <T>(name: string, value: T, global?: boolean) => StateObject<T>;
-};
+mini.state<T>(name: string, initial: T, global?: boolean): { value: T; name: string };
 ```
 
-**Usage:**
-
-```typescript
-// Attach data
-mini.state("user", { id: 1, name: "Alice" });
-
-// Access data
-const user = mini.state("user", null);
-```
-
-**Details:**
-
-- Stores data in `CacheAndCursor` (per-request on backend)
-- On backend, `global` is always `true` (shared scope)
-- Returns `StateObject<T>` with `.value` and `.name`
-
-**Source:**
-
-```typescript
-// mininext/minicache.ts
-export function state<T>(
-  name: string,
-  value: T,
-  cacheAndCursor: CacheAndCursor,
-  global?: boolean,
-): StateObject<T> {
-  // ... cache lookup/insert logic
-}
-```
+- The first call makes the state with `initial`. Later calls return the same object. Change it with `.value`.
+- In the browser, state belongs to the slot of the component. When the slot gets a different template, its state is deleted.
+- `global: true` (always on the server) shares one scope for the whole page or request.
 
 ---
 
-### `mini.html` template in components
+## `mini.html`
 
-Template literal available inside components (same as top-level `html`).
-
-**File:** [`mininext/mininext.ts`](../mininext/mininext.ts)
-
-```typescript
-export type Mini = {
-  html: typeof html;
-};
-```
-
-**Usage:**
-
-```typescript
-function Component(mini: Mini) {
-  return mini.html`<div>Hello</div>`;
-}
-```
-
-**Details:**
-
-- Same as top-level `html` function
-- Available on `Mini` instance for use in components
+The same function as `html`, on the `Mini` that a component gets.
 
 ---
 
-## Utility Functions
-
-### `mini.flatten()` flatten array of HTML strings
-
-Combines an array of `MiniHtmlString` into a single one with a root element.
-
-**File:** [`mininext/mininext.ts`](../mininext/mininext.ts)
+## `.renderBackend()` render to a string (server)
 
 ```typescript
-export type Mini = {
-  flatten(
-    htmlStringArray: MiniHtmlString[],
-    flattenRootFn?: (htmlstrings: MiniHtmlString) => MiniHtmlString,
-  ): MiniHtmlString;
-};
+html`...`.renderBackend(mini?: Mini): string;
 ```
 
-**Usage:**
+Renders a template to an html string with the server rules. It does not need a skeleton.
+
+---
+
+## `crawl()` static site export (server)
+
+**File:** [`mininext/backend/static.ts`](../mininext/backend/static.ts)
 
 ```typescript
-const items = ["a", "b", "c"].map((item) => html`<li>${item}</li>`);
-
-function Component(mini: Mini) {
-  return mini.html`<ul>${mini.flatten(items)}</ul>`;
-}
+crawl(start: string | URL, outdir: string, options?: { paths?: string[]; version?: string }): Promise<MiniArtifact>;
 ```
-
-**Details:**
-
-- Wraps array in a root element (default: `<div>`)
-- Custom root function: `flattenRootFn(htmlstrings) => html`<ul>${htmlstrings}</ul>`
-- Throws if components are not resolved before flattening
-
-**Source:**
 
 ```typescript
-// mininext/mininext.ts
-export function flatten(
-  htmlStringArray: MiniHtmlString[],
-  flattenRootFn = standardFlattenRoot,
-): MiniHtmlString {
-  const flattenedArray = combineMiniHtmlStrings(htmlStringArray);
-  return flattenValues(flattenRootFn(flattenedArray));
-}
+process.env.NODE_ENV = "production";
+const server = Bun.serve({ port: 0, routes });
+await crawl(server.url, "dist", { version: "1.0.0" });
+server.stop();
 ```
+
+- Starts at `paths` (default `["/"]`) and follows every same-origin `href`, `src` and css `url()`.
+- `/docs` is written as `docs/index.html`, so any static host can serve it.
+- Writes `mini_artifact.json`: the sha256 of each file, and one sha256 of the whole site. The combined hash uses `sha256sum` lines, so a shell can check it too.
 
 ---
 
 ## Types
 
-### `MiniHtmlString`
-
-The core type representing HTML with embedded expressions.
-
-**File:** [`mininext/mininext.ts`](../mininext/mininext.ts)
-
 ```typescript
-export type MiniHtmlString = {
+type MiniValue = string | number | null | boolean | undefined
+  | MiniComponent | MiniHandler | MiniHtmlString | MiniValue[];
+type MiniComponent = (mini: Mini) => MiniHtmlString;
+type MiniHandler = (event: any) => unknown;
+
+type MiniHtmlString = {
   stringLiterals: TemplateStringsArray;
   values: MiniValue[];
   resolve(mini?: Mini): ResolvedMiniHtmlString;
-  build(
-    mini?: Mini,
-    root?: string,
-    config?: Bun.BuildConfig,
-  ): Promise<Skeleton>;
+  build(mini?: Mini, root?: string, config?: Bun.BuildConfig): Promise<Skeleton>;
   renderBackend(mini?: Mini): string;
 };
-```
 
----
-
-### `MiniComponent`
-
-A function that takes a `Mini` and returns HTML.
-
-**File:** [`mininext/mininext.ts`](../mininext/mininext.ts)
-
-```typescript
-export type MiniComponent = (mini: Mini) => MiniHtmlString;
-```
-
----
-
-### `Mini`
-
-The context object passed to components.
-
-**File:** [`mininext/mininext.ts`](../mininext/mininext.ts)
-
-```typescript
-export type Mini = {
+type Mini = {
   html: typeof html;
-  state: <T>(name: string, value: T, global?: boolean) => StateObject<T>;
+  state<T>(name: string, value: T, global?: boolean): StateObject<T>;
   cacheAndCursor: CacheAndCursor;
-  flatten(
-    htmlStringArray: MiniHtmlString[],
-    flattenRootFn?: (htmlstrings: MiniHtmlString) => MiniHtmlString,
-  ): MiniHtmlString;
-  fill(...args: MiniValue[]): Blob;
+  fill(...args: MiniValue[]): Blob; // only on skeleton.mini()
 };
-```
 
----
-
-### `Skeleton`
-
-The result of `.build()` — contains static routes and fill methods.
-
-**File:** [`mininext/backend/html.ts`](../mininext/backend/html.ts)
-
-```typescript
 type Skeleton = {
-  static_routes: BunStaticRoutes;
-  fill: (...args: MiniValue[]) => Blob;
-  mini: () => Mini;
+  static_routes: BunStaticRoutes; // put these in Bun.serve({ routes })
+  fill(...args: MiniValue[]): Blob;
+  mini(): Mini;
+};
+
+type MiniArtifact = {
+  schema: "mini_artifact/1";
+  version: string;
+  sha256: string;
+  files: { path: string; sha256: string }[];
 };
 ```
 
@@ -448,7 +251,7 @@ type Skeleton = {
 
 ## See Also
 
-- [Getting Started](./getting-started.md) — Quick start guide
-- [Architecture](./architecture.md) — Conceptual overview
-- [Patterns](./patterns.md) — Real-world usage patterns
+- [Getting Started](./getting-started.md): quick start
+- [Architecture](./architecture.md): how it works
+- [Patterns](./patterns.md): real-world patterns
 - [GitHub Repository](https://github.com/spirobel/mininext)

@@ -6,7 +6,7 @@ This document collects useful patterns extracted from the monero-payment-links c
 
 ```
 project/
-├── server.ts          # main server entry point
+├── index.ts          # main server entry point
 ├── db.ts              # sqlite db setup & SQL queries
 ├── ckechout.ts        # user facing checkout page
 ├── package.json       # dependencies
@@ -33,21 +33,14 @@ project/
 ### bun server setup
 
 ```typescript
-// server.ts
+// index.ts
 import { makeRoutes } from "./routes";
 
-const server = Bun.serve({
+Bun.serve({
   port: 3003,
   routes: makeRoutes(),
 });
-
-// Hot reload support
-globalThis.minireload = () => {
-  server.reload({
-    routes: makeRoutes(),
-    port: 3003,
-  });
-};
+// run with bun --hot index.ts: bun swaps the routes on each change
 
 console.log("Server running at http://localhost:3003");
 ```
@@ -55,7 +48,7 @@ console.log("Server running at http://localhost:3003");
 ### route definitions
 
 ```typescript
-// server.ts aggregate routes in one place
+// index.ts aggregate routes in one place
 export function makeRoutes() {
   const routes = {
     ...dashboardSkeleton.static_routes,
@@ -197,7 +190,7 @@ export async function dashBoardRoute(req: Request) {
   const payment_links = await getAllActivePaymentLinks();
 
   // hydrate with base64 encoded data
-  const hydrate = btoa(JSON.stringify({ scan_settings, payment_links }));
+  const hydrate = Buffer.from(JSON.stringify({ scan_settings, payment_links })).toString("base64");
   return new Response(dashboardSkeleton.fill(hydrate));
 }
 ```
@@ -244,7 +237,7 @@ renderRoot({
 export function getHydratedData(): DashboardData {
   const b64 = document.body.dataset.hydrate;
   if (!b64) throw new Error("No DashboardData to hydrate");
-  return JSON.parse(atob(b64)) as DashboardData;
+  return JSON.parse(new TextDecoder().decode(Uint8Array.from(atob(b64), (c) => c.charCodeAt(0)))) as DashboardData;
 }
 
 // just attach the hydrated data to global scope
@@ -280,24 +273,9 @@ export function paymentLinksList() {
       </div>
     </a>`;
   };
-  // you have to flatten arrays of minihtmlstrings explicitly.
-  // makes the framework simpler
-  // and gives you a chance to be careful about
-  // the type of element to put your list elements into
-
-  // <ul> <li> </li> </ul> typestuff ....
-
+  // an array is a value: each item gets its own slot
   return html`<div>
-    ${() => {
-      const linkElementList: MiniHtmlString[] = [];
-      for (const link of paymentLinks) {
-        linkElementList.push(renderPaymentLink(link));
-      }
-      return flatten(
-        linkElementList,
-        (l) => html`<div class="payment-links-list">${l}</div>`,
-      );
-    }}
+    <div class="payment-links-list">${paymentLinks.map(renderPaymentLink)}</div>
     ${paymentLinksStyles}
   </div>`;
 }
@@ -443,7 +421,7 @@ export type DashboardData = {
 };
 
 // server-side data preparation
-const hydrate = btoa(JSON.stringify({ scan_settings, payment_links }));
+const hydrate = Buffer.from(JSON.stringify({ scan_settings, payment_links })).toString("base64");
 return new Response(dashboardSkeleton.fill(hydrate));
 
 // client-side data access
@@ -564,14 +542,7 @@ export function paymentLinksList() {
         </div>`;
       }
 
-      const linkElementList: MiniHtmlString[] = [];
-      for (const link of paymentLinks) {
-        linkElementList.push(renderPaymentLink(link));
-      }
-      return flatten(
-        linkElementList,
-        (l) => html`<div class="payment-links-list">${l}</div>`,
-      );
+      return html`<div class="payment-links-list">${paymentLinks.map(renderPaymentLink)}</div>`;
     }}
   </div>`;
 }
@@ -581,20 +552,12 @@ export function paymentLinksList() {
 
 ### Hot Reload Setup
 
-```typescript
-// Enable hot reload in development
-globalThis.minireload = () => {
-  server.reload({
-    routes: makeRoutes(),
-    port: 3003,
-  });
-};
-
-// Package.json scripts
+```json
+// package.json scripts. bun --hot is all you need.
 {
   "scripts": {
-    "production": "NODE_ENV=production bun run server.ts",
-    "dev": "bun run --hot server.ts"
+    "production": "NODE_ENV=production bun run index.ts",
+    "dev": "bun run --hot index.ts"
   }
 }
 ```
@@ -648,7 +611,7 @@ function makeRoutes() {
 
 async function homeRoute(req: Request) {
   const data = { message: "Hello Mininext!" };
-  const hydrate = btoa(JSON.stringify(data));
+  const hydrate = Buffer.from(JSON.stringify(data)).toString("base64");
   return new Response(skeleton.fill(hydrate));
 }
 
