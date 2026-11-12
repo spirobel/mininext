@@ -567,10 +567,11 @@ export function paymentLinksList() {
 1. **Separation of Concerns**: keep backend routes, frontend components, and styles in separate directories, but also separated by feature. only do file type separation when it makes sense. feature grouping is more important.
 2. **Type Safety**: Define TypeScript interfaces for all data structures, but dont mistake ts for actually checking the types. it just helps the IDE / gives hints. at runtime none of these type hints exist.
 3. **Error Handling**: Use consistent error response patterns in API routes
-4. **Responsive Design**: Implement mobile-first CSS with media queries 5. **Security**: Always validate user input and use HttpOnly cookies for sessions
-5. **Performance**: Minimize data sent to client through selective hydration
-6. **Code Organization**: Group related components in feature-based directories
-7. **Consistent Naming**: Use camelCase for functions/variables, PascalCase for types/components
+4. **Responsive Design**: Implement mobile-first CSS with media queries
+5. **Security**: Always validate user input and use HttpOnly cookies for sessions
+6. **Performance**: Minimize data sent to client through selective hydration
+7. **Code Organization**: Group related components in feature-based directories
+8. **Consistent Naming**: Use camelCase for functions/variables, PascalCase for types/components
 
 ## Common Patterns Summary
 

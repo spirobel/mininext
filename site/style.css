@@ -32,6 +32,12 @@ h1 {
   font-size: 150%;
   margin: 0;
 }
+/* the page title links home, but looks like the title */
+h1 a:link,
+h1 a:visited {
+  color: inherit;
+  text-decoration: none;
+}
 h2 {
   font-size: 125%;
   margin: 1.4em 0 0.4em;

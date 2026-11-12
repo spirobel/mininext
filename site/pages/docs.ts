@@ -17,7 +17,10 @@ export const docs = await Promise.all(
     // links to source files: ../mininext/x.ts -> github
     const md = (await Bun.file(`${dir}/${file}`).text())
       .replace(/\]\((?:\.\/)?([\w-]+)\.md(#[^)]*)?\)/g, "](/docs/$1$2)")
-      .replace(/\]\(\.\.\/([^)]+)\)/g, "](https://github.com/spirobel/mininext/blob/master/$1)");
+      .replace(/\]\(\.\.\/([^)]+)\)/g, "](https://github.com/spirobel/mininext/blob/master/$1)")
+      // images: ./images/x.png -> /docs/images/x.png. absolute, because the static site
+      // serves a doc as a folder (/docs/hydration/), where ./ would point into it
+      .replace(/\]\(\.\/images\/([^)]+)\)/g, "](/docs/images/$1)");
     const title = md.match(/^#\s+(.+)$/m)?.[1] ?? name;
     const summary =
       md

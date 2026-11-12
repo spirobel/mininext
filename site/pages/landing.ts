@@ -6,7 +6,7 @@ export const header = (sub = "") => html`<table>
   <tr class="h">
     <td>
       <a class="logo" href="/">mini<span style="opacity:.7">next</span></a>
-      <h1>mininext Version ${version}</h1>
+      <h1><a href="/">mininext Version ${version}</a></h1>
       ${sub}
     </td>
   </tr>
