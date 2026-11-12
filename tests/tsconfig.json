@@ -1,0 +1,7 @@
+{
+  // editor only: the root tsconfig builds just mininext/ (rootDir), so this folder needs its own
+  "extends": "../tsconfig.json",
+  "include": ["**/*.ts", "../mininext/**/*.ts", "../examples/**/*.ts"],
+  "exclude": ["dist", "node_modules"],
+  "compilerOptions": { "rootDir": "..", "noEmit": true, "resolveJsonModule": true }
+}
