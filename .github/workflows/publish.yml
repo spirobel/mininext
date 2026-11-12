@@ -1,0 +1,99 @@
+name: publish
+
+# npm trusted publishing: no NPM_TOKEN. the runner proves who it is with an OIDC token,
+# npm checks the trusted publisher config of the package, and mints a short lived token.
+# trigger: a pushed v* tag. requirements: npm >= 11.5.1 and id-token: write.
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: read
+
+env:
+  BUN_VERSION: "1.4.3"
+  NPM_VERSION: "11.15.0"
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          persist-credentials: false
+
+      - name: check the tag matches package.json
+        run: |
+          tag="${GITHUB_REF#refs/tags/v}"
+          version="$(jq -r .version package.json)"
+          if [ "$tag" != "$version" ]; then
+            echo "tag $tag does not match package.json version $version" >&2
+            exit 1
+          fi
+
+      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
+        with:
+          bun-version: ${{ env.BUN_VERSION }}
+
+      - name: install
+        run: bun install --frozen-lockfile
+
+      - name: typecheck
+        run: bun run typecheck
+
+      - name: build
+        run: bun run build
+
+      # upload before the tests run: test code (jsdom and its dependencies) can not change
+      # what gets published. a failed test still stops the publish job (needs: build).
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: dist
+          path: dist
+          if-no-files-found: error
+
+      - name: tests
+        run: bun run test
+
+  # the only job with id-token: write. no dependency install, no build, only npm publish.
+  publish:
+    needs: build
+    runs-on: ubuntu-latest
+    # must equal the environment name in the npm trusted publisher settings.
+    # its protection rules (required reviewers) apply before the OIDC token exists.
+    environment: npm-publish
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          persist-credentials: false
+
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          name: dist
+          path: dist
+
+      # the three entries in package.json "exports"
+      - name: check the built package
+        run: |
+          test -f dist/mininext.js
+          test -f dist/browser.js
+          test -f dist/mininext.d.ts
+          jq -r .version package.json
+
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: 24
+          registry-url: https://registry.npmjs.org
+
+      - name: npm for trusted publishing
+        run: |
+          npm install -g "npm@$NPM_VERSION"
+          npm --version
+
+      # no NODE_AUTH_TOKEN on purpose. a token disables the OIDC path.
+      # the tag stages the version. a maintainer approves it on npmjs.com with 2FA.
+      - name: stage the package
+        run: npm stage publish --access public

@@ -16,14 +16,14 @@ bun add @spirobel/mininext
 
 ```
 my-app/
-├── server.ts
+├── index.ts
 ├── frontend.ts
 ├── package.json
 ```
 
 ## server
 
-Create `server.ts`:
+Create `index.ts`:
 
 ```typescript
 import { html } from "@spirobel/mininext";
@@ -48,7 +48,7 @@ function makeRoutes() {
 
 async function homeRoute(req: Request) {
   const data = { message: "Hello", timestamp: new Date().toISOString() };
-  const hydrate = btoa(JSON.stringify(data));
+  const hydrate = Buffer.from(JSON.stringify(data)).toString("base64");
   return new Response(skeleton.fill(hydrate));
 }
 
@@ -65,7 +65,7 @@ import { html, renderRoot } from "@spirobel/mininext";
 function getHydratedData() {
   const b64 = document.body.dataset.hydrate;
   if (!b64) throw new Error("No data");
-  return JSON.parse(atob(b64));
+  return JSON.parse(new TextDecoder().decode(Uint8Array.from(atob(b64), (c) => c.charCodeAt(0))));
 }
 
 const container = document.getElementById("root");
@@ -84,7 +84,7 @@ renderRoot({
 ## Run
 
 ```bash
-bun run --hot server.ts
+bun run --hot index.ts
 ```
 
 Visit `http://localhost:3000`.
@@ -103,31 +103,48 @@ export function Card({ title, children }: { title: string; children: any }) {
 
 ## Hot Reload in Development
 
-Mininext supports hot reload for development:
+Run the server with `bun --hot index.ts`. Nothing else to set up.
+
+- frontend files: bun's own dev server bundles them and does hot module reload.
+  a code change is swapped in without a page reload, and `renderRoot` keeps the state of the root. you write no hmr code: in dev, `build()` gives each local `<script type="module">` a small entry file that accepts hot updates.
+- backend files: `bun --hot` runs the server again and swaps the routes. pages that use a changed skeleton reload.
+- start bun from your project folder. bun only watches files inside the folder it was started in.
+- in dev `build()` writes `.mininext-<n>.html` and `.mininext-<n>-<k>.ts` files next to your skeleton. add `.mininext-*` to `.gitignore`.
+
+## Static Site
+
+There is no second build system. Start your normal server in production mode and crawl it.
+`crawl()` fetches every page, follows each same-origin `href` and `src`, and writes the files.
 
 ```typescript
-// In server.ts
-globalThis.minireload = () => {
-  server.reload({
-    routes: makeRoutes(),
-    port: 3000,
-  });
-};
+// export.ts. run with: bun export.ts
+process.env.NODE_ENV = "production";
+const { crawl } = await import("@spirobel/mininext");
+const { makeRoutes } = await import("./routes");
+
+const server = Bun.serve({ port: 0, routes: makeRoutes() });
+const artifact = await crawl(server.url, "./dist", { version: "1.0.0" });
+server.stop();
 ```
 
-Then run with `bun run --hot server.ts` to automatically reload on file changes.
+`/docs` becomes `dist/docs/index.html`, so any static host can serve it. Pages that no link points to can be added: `crawl(url, dir, { paths: ["/", "/404"] })`.
 
-## Troubleshooting
+`crawl()` also writes `dist/mini_artifact.json`, the manifest of this artifact:
 
-**Issue**: Module not found errors
+```json
+{
+  "schema": "mini_artifact/1",
+  "version": "1.0.0",
+  "sha256": "<one hash for the whole artifact>",
+  "files": [{ "path": "index.html", "sha256": "<hash of the file>" }]
+}
+```
 
-- **Solution**: Make sure your frontend script src path matches: `<script type="module" src="./frontend.ts"></script>`
+The files are sorted by path. The combined `sha256` is the sha256 of `mini_artifact/1\n<version>\n` followed by one `<sha256>  <path>\n` line per file. Those lines are `sha256sum` format, so you can check an artifact without mininext:
 
-and is not nested like:
-
-`<script type="module" src="./nested/frontend.js"></script>`
-
-that is a current limitation of bun build() with in memory files.
+```bash
+cd dist && jq -r '.files[] | "\(.sha256)  \(.path)"' mini_artifact.json | sha256sum -c
+```
 
 ## Resources
 

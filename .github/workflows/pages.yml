@@ -1,0 +1,59 @@
+name: pages
+
+# the landing page and the docs as a static site on github pages:
+# start the site server, crawl it (site/export.ts), deploy site/dist.
+# served at https://mininext.dev (custom domain, set in repo settings > pages).
+# one time setup: repo settings > pages > source: "github actions".
+on:
+  push:
+    branches: [master]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+# one deploy at a time, a newer push waits for the running one
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+env:
+  BUN_VERSION: "1.4.3"
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          persist-credentials: false
+
+      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
+        with:
+          bun-version: ${{ env.BUN_VERSION }}
+
+      - name: install
+        run: bun install --frozen-lockfile
+
+      # the custom domain serves the site from /. without it, github serves
+      # spirobel.github.io/mininext/ and this needs BASE=/mininext.
+      - name: export the site
+        run: bun site/export.ts
+
+      - uses: actions/upload-pages-artifact@fc324d3547104276b827a68afc52ff2a11cc49c9 # v5.0.0
+        with:
+          path: site/dist
+
+  # the only job that can write to pages
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@368f82528645a54fb793d4d04e342629a3f51346 # v5.0.1

@@ -11,11 +11,13 @@ When you call `renderRoot()`, it starts a loop:
 
 ```typescript
 function renderLoop() {
-  const html = component();
-  container.innerHTML = html;
+  const template = component(mini); // your code runs every frame
+  template.resolve(mini).render(container); // writes only the values that changed
   requestAnimationFrame(renderLoop);
 }
 ```
+
+The first frame parses each template once and keeps references to its nodes. Later frames write a changed value straight to its node (`Text.nodeValue`, `setAttribute`, a property). A frame with no change writes nothing to the DOM, so the browser has no layout or style work to do.
 
 The browser throttles `requestAnimationFrame` when the tab isn't visible:
 
@@ -55,16 +57,16 @@ const skeleton = await html`<!DOCTYPE html>
     </body>
   </html>`.build();
 
-const data = { count: 42 };
-const hydrate = btoa(JSON.stringify(data));
+const data = { count: 42, name: "Zoë" };
+const hydrate = Buffer.from(JSON.stringify(data)).toString("base64"); // utf-8 safe
 const html = skeleton.fill(hydrate);
 ```
 
 Client side:
 
 ```typescript
-const b64 = document.body.dataset.hydrate;
-const data = JSON.parse(atob(b64));
+const bytes = Uint8Array.from(atob(document.body.dataset.hydrate!), (c) => c.charCodeAt(0));
+const data = JSON.parse(new TextDecoder().decode(bytes));
 ```
 
 This drastically reduces render time compared to naive client-side rendering. Achieves same or better performance than React Server Components / SSR, while minimizing attack surface & complexity.
@@ -88,6 +90,25 @@ Expressions are HTML-escaped. Functions in templates run every render:
 ```typescript
 html`<div>${() => Date.now()}</div>`; // Updates every frame
 ```
+
+## Quality Assurance
+
+Server code and browser code are separate entry points, so server code, yours or ours, only reaches the browser when your frontend imports its file: keep secrets in files the frontend does not import.
+
+### Values
+
+Only the literal parts of a template are html. Every `${value}` is data, and these rules hold on the backend and the frontend:
+
+- **Text** is escaped (backend) or written with `Text.nodeValue` (frontend). It never becomes markup.
+- **Attribute values** are escaped and quoted (backend) or set with `setAttribute` (frontend). A value can not close the quotes or add an attribute.
+- **A value must be an attribute value** inside a tag: `<div ${x}>`, `<${tag}>` and values in html comments throw an error.
+- **`on*` attributes take a function**: `onclick=${() => go(id)}`. A string throws, because the browser would run it as code. On the backend the handler is left out. `srcdoc` takes no values.
+- **url attributes** (`href`, `src`, `action`, `formaction`, ...) refuse `javascript:`, `vbscript:` and `data:` urls (`data:image/` is allowed). Browsers ignore spaces and control characters in the scheme, so those are removed before the check.
+- **Plain objects are refused.** Only `html```` makes templates (they carry a symbol that json can not have). Arrays become lists, and their items follow the same rules.
+- **`fill()`** checks values that go into an attribute placeholder like `href="${null}"` with the same rules.
+- `<style>`, `<textarea>` and `<title>` values stay text.
+
+The tests for these rules are in `tests/quality_assurance/frontend.test.ts` and `tests/quality_assurance/backend.test.ts`.
 
 ## State Management
 
@@ -149,11 +170,10 @@ const router = createRouter({
 
 **How it works:**
 
-1. Listens to `hashchange` events
-2. Matches current hash against route patterns
-3. Extracts parameters from URL
-4. Sets `router.component` to matched route's output
-5. Re-renders the root container
+1. `router.component` runs in every frame of the `renderRoot` loop. It reads `window.location.hash`. There is no `hashchange` listener.
+2. It drops a `?query` after the path, and matches the path against the routes.
+3. It calls the handler of the matched route with the decoded params.
+4. If no route matches, it renders nothing and warns one time for that path. The loop keeps running.
 
 ### Route Pattern Matching
 
@@ -169,11 +189,12 @@ const router = createRouter({
 
 **Matching algorithm:**
 
-1. Split route pattern into segments
-2. For each segment:
-   - If starts with `:`, capture as parameter
-   - Otherwise, must match exactly
-3. Return params object if all segments match
+1. The routes are sorted one time, like in the Bun router: static segments before `:params`, and `/*` routes last (a longer prefix first). The order of the keys in the object does not matter.
+2. For each segment of the path:
+   - If the route segment starts with `:`, capture it as a param (percent decoded, so `#/users/John%20Doe` gives `"John Doe"`)
+   - Otherwise, it must match exactly
+3. Return the params of the first route that matches. A `/*` route also gives `params["*"]`, the rest of the path.
+4. `link()` and `navigate()` percent encode the params, so every value comes back the same.
 
 ### Why Hash-Based?
 
@@ -193,11 +214,11 @@ For Backend routing we rely on the standard Bun router (`Bun.serve`). We use it 
 A skeleton is an HTML template built once at startup. `${null}` creates a placeholder that gets filled per-request.
 
 ```typescript
-// tests/counter.ts
+// examples/counter.ts
 const skeleton = await html`<!DOCTYPE html>
   <html>
     <body>
-      <div id="count">${null}</div>
+      <main>${null}</main>
     </body>
   </html>`.build();
 ```
@@ -217,29 +238,29 @@ type Skeleton = {
 `skeleton.fill()` replaces each `${null}` placeholder with the corresponding argument:
 
 ```typescript
-// tests/counter.ts
+// examples/counter.ts
 return new Response(
   skeleton.fill(html`<div id="count">${globalCounter}</div>`),
 );
 ```
 
-`curryFill()` in `mininext/backend/html.ts` does string replacement. Each `${null}` gets a UUID at build time (`renderBackend()`). `fill()` replaces those UUIDs with rendered content.
+`curryFill()` in `mininext/backend/html.ts` fills the placeholders. At build time each `${null}` becomes a numbered token (`__mini_null_0__`, ...), so the same skeleton always builds to the same html. `fill()` splits the html at the tokens once and puts the escaped or rendered values in between.
 
 ### `.mini()` State Without Props Drilling
 
 `skeleton.mini()` returns a `Mini` instance with `.fill()` bound to it. You can attach data to `mini` via `mini.state()`, then access it in any component without passing it through the tree.
 
 ```typescript
-// tests/newdawn.ts
+// examples/request-state.ts
+function path(mini: Mini) {
+  const req = mini.state<Request | null>("req", null).value; // access it
+  return mini.html`<p>you asked for ${req ? new URL(req.url).pathname : "?"}</p>`;
+}
+
 function fetch(req: Request) {
   const mini = skeleton.mini();
-  mini.state("test", req); // attach the request
-  return new Response(
-    mini.fill((mini: Mini) => {
-      const bla = mini.state("test", null); // access it
-      return mini.html`<h1>hello 2</h1>`;
-    }),
-  );
+  mini.state("req", req); // attach the request
+  return new Response(mini.fill((mini: Mini) => mini.html`<h1>hello</h1>${path}`));
 }
 ```
 
@@ -264,7 +285,7 @@ The expensive work is the DOM repainting, not reevalution of component logic. (n
 ### Route Setup
 
 ```typescript
-// tests/counter.ts
+// examples/counter.ts
 const server = Bun.serve({
   routes: skeleton.static_routes, // static assets from build
   fetch, // dynamic route handler

@@ -1,5 +1,9 @@
 # mininext
 
+Website and docs: [mininext.dev](https://mininext.dev) 
+
+npm: [@spirobel/mininext](https://www.npmjs.com/package/@spirobel/mininext)
+
 ## mininext Architecture
 
 Mininext is a web framework that brings the immediate mode GUI paradigm to the web.
@@ -58,18 +62,11 @@ function fetch(req: Request) {
   );
 }
 
+// keep the server: you need it for server.upgrade() (websockets) and server.publish()
 const server = Bun.serve({
   routes: skeleton.static_routes,
   fetch,
 });
-
-// hmr support
-globalThis.minireload = () => {
-  server.reload({
-    routes: skeleton.static_routes,
-    fetch,
-  });
-};
 
 console.log("Counter server running at http://localhost:3000");
 ```
