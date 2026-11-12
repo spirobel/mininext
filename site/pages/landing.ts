@@ -227,7 +227,7 @@ export const landing = () => html`${header("index.php won. Now fresh in TypeScri
   <h2>try it</h2>
   <div class="copyable">
     ${code(start, "sh")}
-    <button type="button" data-copy="${start}">copy</button>
+    <button type="button" data-copy="${install}">copy</button>
   </div>
   <p class="credit">the <a href="/docs">docs</a> have getting started, architecture, patterns and the api reference.</p>
   ${footer()}`;

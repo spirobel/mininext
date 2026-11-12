@@ -263,3 +263,22 @@ test("x14 a frontend that imports server code with bun builtins does not build",
   expect(r.success).toBe(false);
   expect(r.logs.map(String).join("\n")).toContain("bun:sqlite");
 });
+
+// ---- the component model does not change by accident ----
+// a tripwire, not a behavior test. it fails on every change to core.ts, also a comment.
+// same value as: sha256sum mininext/core.ts
+const CORE_SHA256 = "f0105cf461ebe44d6d871bd2f9ab7964753cf6c7e9f4555e64f6184e75582db2";
+
+test("x15 core.ts, the component model, did not change", () => {
+  const sha256 = new Bun.CryptoHasher("sha256").update(readFileSync(`${LIB}/core.ts`, "utf8").replaceAll("\r\n", "\n")).digest("hex");
+  if (sha256 === CORE_SHA256) return;
+  throw new Error(`mininext/core.ts changed.
+
+core.ts is the component model. it is in every browser bundle, so a change here changes what all apps ship.
+
+1. think first: must this change be in core.ts? code for the server or for dev mode belongs in mininext/backend/.
+2. if the change is necessary, put the new hash into CORE_SHA256 in tests/quality_assurance/backend.test.ts:
+
+   ${sha256}
+`);
+});

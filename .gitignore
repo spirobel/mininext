@@ -6,9 +6,6 @@ dist/
 # each folder is cleaned when its test file starts, so you can look at it after a run.
 /test-data/
 
-# dev files that mininext build() writes next to a skeleton for bun's hmr
-.mininext-*
-
 # logs, env, editors, os
 *.log
 .env

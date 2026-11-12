@@ -1,4 +1,5 @@
-import { resolve } from "node:path";
+import { existsSync, mkdirSync, readdirSync, rmSync, writeFileSync } from "node:fs";
+import { relative, resolve, sep } from "node:path";
 import {
   getResolvedMiniHtmlStringThrows,
   type CacheAndCursor,
@@ -119,27 +120,86 @@ async function writeIfChanged(file: string, text: string) {
   if ((await old.exists()) && (await old.text()) === text) return;
   await Bun.write(file, text);
 }
+// bun's dev server needs real files for a page. they go to .mininext/<pid>/ in the working
+// folder, not next to the sources. the folder has its own .gitignore.
+// one subfolder per process: two dev servers in one folder do not overwrite each other.
+function devFolder() {
+  // bun --hot runs this module again. the process keeps its folder
+  const g = globalThis as { __mininextDevFolder?: string };
+  if (g.__mininextDevFolder) return g.__mininextDevFolder;
+  const base = resolve(process.cwd(), ".mininext");
+  mkdirSync(base, { recursive: true });
+  if (!existsSync(resolve(base, ".gitignore"))) writeFileSync(resolve(base, ".gitignore"), "*\n");
+  // folders of processes that are gone (a crash, ctrl-c), and an old one with our pid
+  for (const name of readdirSync(base))
+    if (/^\d+$/.test(name) && !runs(Number(name))) rmSync(resolve(base, name), { recursive: true, force: true });
+  const dir = resolve(base, String(process.pid));
+  mkdirSync(dir, { recursive: true });
+  process.on("exit", () => rmSync(dir, { recursive: true, force: true }));
+  return (g.__mininextDevFolder = dir);
+}
+// another process with this pid runs
+function runs(pid: number) {
+  if (pid === process.pid) return false;
+  try {
+    process.kill(pid, 0);
+    return true;
+  } catch (e) {
+    // EPERM: it runs, as another user
+    return (e as NodeJS.ErrnoException).code === "EPERM";
+  }
+}
+// the file that calls build(): the first file on the stack that is not in this library
+function callerFile() {
+  const prepare = Error.prepareStackTrace;
+  Error.prepareStackTrace = (_, stack) => stack;
+  const err = new Error();
+  Error.captureStackTrace(err, callerFile);
+  const stack = err.stack as unknown as NodeJS.CallSite[];
+  Error.prepareStackTrace = prepare;
+  const lib = resolve(import.meta.dir, "..") + sep;
+  return stack.map((site) => site.getFileName()).find((file) => file && !file.startsWith(lib));
+}
 async function devBundle(root: string, html: string) {
   const id = devPages++;
   const route = `/__mininext/${id}`;
-  // a real file next to the frontend files: relative paths work and bun watches it
-  const file = resolve(root, `.mininext-${id}.html`);
-  if (!file.startsWith(process.cwd() + "/"))
-    console.warn(
-      `mininext: ${file} is outside the working folder ${process.cwd()}. bun only watches files inside it, so hmr will not see changes. start bun from the project folder.`,
-    );
+  const dir = devFolder();
+  // dashboard.ts calls build(): dashboard-<id>.html
+  const name = `${callerFile()?.split(/[\\/]/).pop()?.replace(/\.[^.]*$/, "").replace(/[^\w.-]/g, "_") || "page"}-${id}`;
+  const file = resolve(dir, `${name}.html`);
+  // a local url of the skeleton, as a path from the dev folder
+  const fromDev = (url: string) => {
+    if (!local(url) || url.startsWith("/")) return url;
+    const path = relative(dir, resolve(root, url)).split(sep).join("/");
+    return path.startsWith("../") ? path : `./${path}`;
+  };
   // each local module script gets a small entry file that accepts hot updates.
   // bun then swaps edited code in place (renderRoot keeps the state), with no hmr code in the app.
   const entries: Promise<void>[] = [];
+  const move = (attr: string) => ({
+    element: (el: HTMLRewriterTypes.Element) => void el.setAttribute(attr, fromDev(el.getAttribute(attr)!)),
+  });
   const devPage = new HTMLRewriter()
-    .on("script[type=module][src]", {
+    // the urls that bun resolves start from the dev folder now
+    .on("[src]", {
       element: (el) => {
         const src = el.getAttribute("src")!;
-        if (!local(src)) return;
-        const entry = `.mininext-${id}-${entries.length}.ts`;
-        const target = /^\.{0,2}\//.test(src) ? src : `./${src}`;
-        entries.push(writeIfChanged(resolve(root, entry), `import ${JSON.stringify(target)};\nimport.meta.hot.accept();\n`));
+        if (el.tagName !== "script" || el.getAttribute("type") !== "module" || !local(src))
+          return void el.setAttribute("src", fromDev(src));
+        const entry = `${name}-${entries.length}.ts`;
+        entries.push(writeIfChanged(resolve(dir, entry), `import ${JSON.stringify(fromDev(src))};\nimport.meta.hot.accept();\n`));
         el.setAttribute("src", `./${entry}`);
+      },
+    })
+    .on("link[href]", move("href"))
+    .on("[poster]", move("poster"))
+    .on("[srcset]", {
+      element: (el) => {
+        const sources = el.getAttribute("srcset")!.split(",").map((source) => {
+          const [url = "", ...size] = source.trim().split(/\s+/);
+          return [fromDev(url), ...size].join(" ");
+        });
+        el.setAttribute("srcset", sources.join(", "));
       },
     })
     // a new id on every build(): bun --hot reruns build() after any backend edit,
