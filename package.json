@@ -29,7 +29,7 @@
     "typecheck": "tsc --noEmit -p . && tsc -p mininext/frontend/tsconfig.json && tsc -p site/tsconfig.json && tsc -p tests/tsconfig.json && tsc -p examples/tsconfig.json",
     "test": "bun test ./tests/functional/backend.test.ts ./tests/quality_assurance/backend.test.ts ./tests/performance/leak.test.ts ./tests/functional/hmr.integration.test.ts ./tests/functional/static.integration.test.ts && bun test ./tests/functional/noderefs.test.ts && bun test ./tests/functional/router.test.ts && bun test ./tests/quality_assurance/frontend.test.ts && bun test ./tests/functional/stress.test.ts && bun test ./tests/performance/writes.test.ts",
     "test:browser": "bun test ./tests/chrome/dom.integration.test.ts && bun test ./tests/functional/hmr.browser.integration.test.ts",
-    "test:perf": "bun test ./tests/performance/scaling.test.ts && bun test ./tests/performance/browser.integration.test.ts",
+    "test:perf": "bun test ./tests/performance/scaling.test.ts && PERF=1 bun test ./tests/chrome/dom.integration.test.ts && bun test ./tests/performance/browser.integration.test.ts",
     "clean": "rm -rf dist"
   },
   "devDependencies": {
