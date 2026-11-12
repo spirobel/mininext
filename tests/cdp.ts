@@ -10,11 +10,12 @@ const CHROME_FLAGS = process.env.CI ? ["--no-sandbox"] : [];
 export class CDP {
   private id = 0;
   private pending = new Map<number, { ok: (v: any) => void; fail: (e: Error) => void }>();
-  readonly events: { method: string; params: any }[] = [];
+  // at: when the event arrived (Date.now), for timelines in test data
+  readonly events: { method: string; params: any; at: number }[] = [];
   private constructor(private ws: WebSocket) {
     ws.onmessage = (m) => {
       const msg = JSON.parse(String(m.data));
-      if (msg.id === undefined) return void this.events.push(msg);
+      if (msg.id === undefined) return void this.events.push({ ...msg, at: Date.now() });
       const p = this.pending.get(msg.id)!;
       this.pending.delete(msg.id);
       msg.error ? p.fail(new Error(`${msg.error.message} ${msg.error.data ?? ""}`)) : p.ok(msg.result);
@@ -78,8 +79,16 @@ export async function openChrome(dir: string) {
       if (existsSync(`${dir}/profile/DevToolsActivePort`)) port = readFileSync(`${dir}/profile/DevToolsActivePort`, "utf8").split("\n")[0]!;
     }
     if (!port) throw new Error(`chrome did not start: ${CHROME}`);
-    const targets = await (await fetch(`http://127.0.0.1:${port}/json/list`)).json();
-    const cdp = await CDP.connect(targets.find((t: any) => t.type === "page").webSocketDebuggerUrl);
+    // chrome writes DevToolsActivePort before its http endpoint answers and before
+    // the first tab is listed (a ci failure). ask again until the page is there
+    let page: any;
+    for (let i = 0; i < 100 && !page; i++) {
+      const targets = await fetch(`http://127.0.0.1:${port}/json/list`).then((r) => r.json()).catch(() => []);
+      page = targets.find((t: any) => t.type === "page");
+      if (!page) await Bun.sleep(100);
+    }
+    if (!page) throw new Error(`chrome has no page target on port ${port}`);
+    const cdp = await CDP.connect(page.webSocketDebuggerUrl);
     for (const d of ["Runtime", "Page", "Log"]) await cdp.send(`${d}.enable`);
     // wait for the exit: a next run deletes this profile folder, and a chrome that is
     // still shutting down writes into it

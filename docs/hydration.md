@@ -28,7 +28,7 @@ There is a clear benefit to hydration. If the data is on the same server, the ti
 
 In modern React this idea is disappearing. The React team has accepted the false premise that server side rendering is worthwhile. Even worse, with React Server Components they split the rendering itself between client and server, and the server sends a serialized component tree over its own wire format.
 
-![rsc hydration](https://www.plasmic.app/blog/static/images/react-server-components-placeholders.png)
+![rsc hydration](./images/react-server-components-placeholders.png)
 
 That wire format is where a remote code execution vulnerability came from (CVE-2025-55182). It was followed by more CVEs that lead to denial of service and to exposure of source code and secrets.
 
