@@ -149,3 +149,41 @@ test("h05 websockets work next to skeleton routes, in production and dev", async
   writeFileSync(`${dir}/results.json`, JSON.stringify(results, null, 2));
   expect(results).toEqual({ production: "echo:hi | page ok: true", development: "echo:hi | page ok: true" });
 });
+
+test("h06 a local favicon works in production and dev, with no dead icon link", async () => {
+  const { dir } = testData("h06-favicon");
+  mkdirSync(`${dir}/nested`, { recursive: true });
+  writeFileSync(`${dir}/nested/icon.svg`, `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1 1"/>`);
+  writeFileSync(`${dir}/nested/front.ts`, `document.body.dataset.ok = "1";`);
+  const results: Record<string, { icons: string[]; local: boolean }> = {};
+  for (const mode of ["production", "development"]) {
+    const prev = Bun.env.NODE_ENV;
+    Bun.env.NODE_ENV = mode;
+    const skeleton = await html`<!doctype html><html><head><link rel="icon" type="image/svg+xml" href="./nested/icon.svg" /><script type="module" src="./nested/front.ts"></script></head><body>${null}</body></html>`.build(undefined, dir);
+    Bun.env.NODE_ENV = prev;
+    const server = Bun.serve({ port: 0, routes: { ...skeleton.static_routes, "/": () => new Response(skeleton.fill("page")) } });
+    try {
+      const body = await (await fetch(new URL("/", server.url))).text();
+      // in dev the loader script writes the bundled tags into the page
+      const loaderSrc = body.match(/<script src="(\/__mininext\/\d+\.js)">/)?.[1];
+      const loader = loaderSrc ? await (await fetch(new URL(loaderSrc, server.url))).text() : "";
+      const seen = body + JSON.parse(loader.match(/^document\.write\((.*)\);$/)?.[1] ?? '""');
+      const hrefs = [...seen.matchAll(/<link [^>]*rel="icon"[^>]*href="([^"]+)"/g)].map((m) => m[1]!);
+      const icons = await Promise.all(
+        hrefs.map(async (h) => {
+          const r = await fetch(new URL(h, server.url));
+          return `${h.startsWith("./") ? h : "bundled"} ${r.status} ${r.headers.get("content-type")?.split(";")[0]}`;
+        }),
+      );
+      writeFileSync(`${dir}/${mode}.html`, seen);
+      results[mode] = { icons, local: body.includes("./nested/icon.svg") };
+    } finally {
+      server.stop(true);
+    }
+  }
+  writeFileSync(`${dir}/results.json`, JSON.stringify(results, null, 2));
+  expect(results).toEqual({
+    production: { icons: ["bundled 200 image/svg+xml"], local: false },
+    development: { icons: ["bundled 200 image/svg+xml"], local: false },
+  });
+});

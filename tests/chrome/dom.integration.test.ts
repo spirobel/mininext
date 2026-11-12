@@ -17,8 +17,12 @@ const SHIMS: Record<string, string> = {
 
 // file -> number of tests in it, so a test that never ran is a failure
 const FILES = { "functional/noderefs": 18, "quality_assurance/frontend": 8, "functional/stress": 3, "performance/writes": 10, "performance/scaling": 3 };
+// scaling measures time. a busy machine (a ci runner) makes it fail, so it runs only
+// in "test:perf" (PERF=1), alone on a quiet machine. test:browser runs the rest.
+const TIMING = ["performance/scaling"];
+const selected = Object.entries(FILES).filter(([file]) => TIMING.includes(file) === !!process.env.PERF);
 
-for (const [file, count] of Object.entries(FILES))
+for (const [file, count] of selected)
   test(
     `c01 ${file}.test.ts passes in chrome`,
     async () => {
