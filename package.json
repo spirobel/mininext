@@ -2,6 +2,7 @@
   "name": "@spirobel/mininext",
   "license": "MIT",
   "version": "0.9.1",
+  "description": "Mininext is: index.php meets Dear ImGui. The new simplified webstack in TypeScript.",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/spirobel/mininext.git"
