@@ -1,7 +1,7 @@
 {
   "name": "@spirobel/mininext",
   "license": "MIT",
-  "version": "0.9.1",
+  "version": "0.9.2",
   "description": "Mininext is: index.php meets Dear ImGui. A new simplified webstack in TypeScript.",
   "repository": {
     "type": "git",
