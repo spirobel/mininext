@@ -97,10 +97,28 @@ test("f05 on* attributes take a function, never a string", () => {
   expect(() => mount(() => html`<button onclick="go('${"x');alert(1);('"}')">x</button>`)).toThrow("onclick");
   expect(() => mount(() => html`<iframe srcdoc="${"<script>alert(1)</script>"}"></iframe>`)).toThrow("srcdoc");
   let clicked = 0;
-  const { container } = mount(() => html`<button onclick=${() => clicked++}>x</button>`);
-  container.querySelector("button")!.click();
+  const onClick = () => { clicked++; };
+  let handler: typeof onClick | boolean | null | undefined = onClick;
+  const { container, frame } = mount(
+    () => html`<button mininext-onclick="${"ordinary attribute"}" onclick="${handler}">x</button>`,
+  );
+  const button = container.querySelector("button")!;
+  expect(button.getAttribute("mininext-onclick")).toBe("ordinary attribute");
+  for (const empty of [null, undefined, false, true]) {
+    const before = clicked;
+    handler = onClick;
+    frame();
+    button.click();
+    expect(clicked).toBe(before + 1);
+
+    handler = empty;
+    frame();
+    expect(button.onclick).toBe(null);
+    expect(button.hasAttribute("onclick")).toBe(false);
+    button.click();
+    expect(clicked).toBe(before + 1);
+  }
   td.dump("dom.html", container.innerHTML);
-  expect(clicked).toBe(1);
 });
 
 test("f06 url attributes refuse javascript:, vbscript: and non-image data:", () => {

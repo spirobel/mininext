@@ -50,7 +50,7 @@ await import(${JSON.stringify(`${import.meta.dir}/../${file}.test.ts`)});
       const server = Bun.serve({
         port: 0,
         routes: {
-          "/": new Response(`<!doctype html><html><head><title>${file}</title><script type="module" src="/t.js"></script></head><body></body></html>`, { headers: { "content-type": "text/html" } }),
+          "/": new Response(`<!doctype html><html><head><title>${file}</title><script type="module" src="/t.js"></script></head><body></body></html>`, { headers: { "content-type": "text/html", "content-security-policy": "script-src 'self'; object-src 'self'" } }),
           "/t.js": new Response(js, { headers: { "content-type": "text/javascript" } }),
           "/favicon.ico": new Response(null, { status: 204 }),
         },
@@ -72,6 +72,11 @@ await import(${JSON.stringify(`${import.meta.dir}/../${file}.test.ts`)});
         dump("errors.json", JSON.stringify(errors, null, 2));
         expect(results.filter((r: any) => !r.ok).map((r: any) => `${r.name}: ${r.error}`)).toEqual([]);
         expect(results.length).toBe(count);
+        const cspWarnings = cdp.events.filter((event) =>
+          event.method === "Log.entryAdded" &&
+          event.params.entry.text.includes("Executing inline event handler violates"),
+        );
+        expect(cspWarnings.map((event) => event.params.entry.text)).toEqual([]);
         expect(errors.map((e) => JSON.stringify(e.params).slice(0, 300))).toEqual([]);
       } finally {
         await close();

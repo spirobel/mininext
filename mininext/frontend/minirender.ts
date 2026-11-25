@@ -13,6 +13,11 @@ import { checkAttribute, isList, valuePositions, type StringArray } from "../cor
 const MARK = "";
 const COMMENT_MARKER = new RegExp(`^${MARK}(\\d+)${MARK}$`);
 const ATTR_MARKER = new RegExp(`${MARK}(\\d+)${MARK}`);
+// event markers are attribute values, so the parser must see an inert name.
+const EVENT_PART = `${MARK}mininext-`;
+const TAG = /<!--[\s\S]*?-->|<(\/?)([a-z][\w:.-]*)(?=[ \t\r\n\f/>])(?:"[^"]*"|'[^']*'|[^"'<>])*>/gi;
+const ATTRIBUTE = /([ \t\r\n\f]+)([^ \t\r\n\f"'<>/=]+)[ \t\r\n\f]*=[ \t\r\n\f]*(?:"[^"]*"|'[^']*'|[^ \t\r\n\f"'>]+)/g;
+const RAW_TEXT_TAGS = new Set(["script", "style", "textarea", "title", "xmp", "iframe", "noembed", "noframes"]);
 // in <style>, <textarea>, <title> a comment is plain text
 const RAW_TEXT_MARKER = new RegExp(`<!--${MARK}(\\d+)${MARK}-->`);
 // for these the live property counts, not the attribute
@@ -149,6 +154,25 @@ function renderList(
   );
 }
 
+function markEventParts(markup: string): string {
+  let rawTextTag: string | undefined;
+  return markup.replace(TAG, (tag, slash, tagName: string | undefined) => {
+    const name = tagName?.toLowerCase();
+    if (rawTextTag) {
+      if (slash && name === rawTextTag) rawTextTag = undefined;
+      return tag;
+    }
+    if (!name || slash) return tag;
+    if (RAW_TEXT_TAGS.has(name)) rawTextTag = name;
+    if (!tag.includes(MARK)) return tag;
+    return tag.replace(ATTRIBUTE, (attr, space, name) =>
+      name.toLowerCase().startsWith("on") && ATTR_MARKER.test(attr)
+        ? space + EVENT_PART + attr.slice(space.length)
+        : attr,
+    );
+  });
+}
+
 function parse(stringLiterals: StringArray) {
   const inTag = valuePositions(stringLiterals);
   let markup = "";
@@ -159,7 +183,7 @@ function parse(stringLiterals: StringArray) {
     markup += inTag[i] ? token : `<!--${token}-->`;
   });
   const template = document.createElement("template");
-  template.innerHTML = markup;
+  template.innerHTML = markup.includes(MARK) ? markEventParts(markup) : markup;
   const fragment = template.content;
   const kids = new Map<number, Range>();
   const parts: Part[] = [];
@@ -184,14 +208,16 @@ function parse(stringLiterals: StringArray) {
     } else {
       const el = node as Element;
       for (const attr of [...el.attributes]) {
-        if (attr.name.includes(MARK))
+        const eventPart = attr.name.startsWith(EVENT_PART);
+        const name = eventPart ? attr.name.slice(EVENT_PART.length) : attr.name;
+        if (name.includes(MARK))
           throw new Error(
             `mininext: a value in <${el.localName}> must be an attribute value, like name="\${value}"`,
           );
         if (!attr.value.includes(MARK)) continue;
-        const part = splitPart(el, attr.value, ATTR_MARKER, attr.name);
+        const part = splitPart(el, attr.value, ATTR_MARKER, name);
         // a single value sets the whole attribute later (or a property)
-        if (isSingle(part)) el.removeAttribute(attr.name);
+        if (eventPart || isSingle(part)) el.removeAttribute(attr.name);
         parts.push(part);
       }
     }
@@ -231,9 +257,9 @@ function applyParts(parts: Part[], values: ResolvedMiniCacheValue[]) {
       continue;
     }
     const value = values[part.idx[0]!];
-    if (typeof value === "function") {
+    if (typeof value === "function" || part.name.startsWith("on")) {
       checkAttribute(part.name, value);
-      el[part.name] = value; // handler: set each frame, so it is never stale
+      el[part.name] = typeof value === "function" ? value : null;
       continue;
     }
     if (value === part.last) continue;
